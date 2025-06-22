@@ -9,6 +9,8 @@ packages = [{include = "src"}]
 [tool.poetry.dependencies]
 python = "^3.12"
 pyla-logger = "^1.0.0"
+flake8 = "^7.0.0"
+tomli = "^2.0.0"
 
 [tool.poetry.group.dev.dependencies]
 black = "^23.1.0"
@@ -67,8 +69,8 @@ lint = "flake8"
 format = ["black", "isort"]
 autolint = ["black", "isort", "lint"]
 
-[tool.poetry.plugins."pylama.linter"]
-length_checker = "src.linters.length_checker.plugin:LengthCheckerPlugin"
+[tool.poetry.plugins."flake8.extension"]
+EL1 = "src.linters.length_checker.plugin:LengthCheckerPlugin"
 
 [tool.pyla-linters]
 max_function_length = 40

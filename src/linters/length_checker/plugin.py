@@ -1,7 +1,7 @@
-"""Main plugin class implementing pylama interface."""
+"""Main plugin class implementing flake8 interface."""
 
 import ast
-from typing import Dict, List, Optional
+from typing import Iterator, Optional, Tuple
 
 from .ast_visitor import ASTVisitor
 from .config import LengthCheckerConfig
@@ -9,83 +9,83 @@ from .line_counter import LineCounter
 
 
 class LengthCheckerPlugin:
-    """Pylama plugin for checking function and class length."""
+    """Flake8 plugin for checking function and class length."""
 
     name = "length_checker"
-    # Enable the plugin by default
-    enable = True
+    version = "1.0.0"
 
-    def __init__(self):
-        """Initialize the plugin."""
+    def __init__(self, tree: ast.AST, filename: str = "<stdin>"):
+        """Initialize the plugin with AST tree and filename."""
+        self.tree = tree
+        self.filename = filename
         self.config = LengthCheckerConfig()
-        self._errors: List[Dict] = []
         self._config_loaded = False
         self._manual_config = False
 
     @classmethod
-    def add_args(cls, parser):
-        """Add command line arguments for the plugin."""
-        # Add plugin-specific command line arguments if needed
-        parser.add_argument(
+    def add_options(cls, option_manager):
+        """Add command line options for the plugin."""
+        option_manager.add_option(
             "--length-max-function",
             type=int,
             help="Maximum allowed function length (overrides config file)",
+            parse_from_config=True,
         )
-        parser.add_argument(
+        option_manager.add_option(
             "--length-max-class",
             type=int,
             help="Maximum allowed class length (overrides config file)",
+            parse_from_config=True,
         )
 
-    def allow(self, path: str) -> bool:
-        """Check if this plugin should process the given file path."""
-        # Only process Python files
-        return path.endswith((".py", ".pyi"))
+    @classmethod
+    def parse_options(cls, options):
+        """Parse command line options."""
+        cls.max_function_length_override = getattr(options, "length_max_function", None)
+        cls.max_class_length_override = getattr(options, "length_max_class", None)
 
     def set_config(self, config: LengthCheckerConfig) -> None:
         """Set configuration manually (prevents loading from pyproject.toml)."""
         self.config = config
         self._manual_config = True
 
-    def run(
-        self, path: str, code: Optional[str] = None, params: Optional[dict] = None, **meta
-    ) -> List[Dict]:
-        """Run the length checker on a file.
-
-        Args:
-            path: Path to the file being checked
-            code: File content (if None, will read from path)
-            params: Additional parameters from pylama
-            **meta: Additional metadata
-
-        Returns:
-            List of error dictionaries for pylama
-        """
-        self._errors = []
+    def run(self) -> Iterator[Tuple[int, int, str, str]]:
+        """Run the length checker and yield flake8 errors."""
         self._load_config_if_needed()
 
-        # Override config with command line arguments if provided
-        if params:
-            self._apply_command_line_params(params)
-
-        code = self._get_file_content(path, code)
-        if code is None:
-            return []
+        # Apply command line overrides if available
+        if (
+            hasattr(self.__class__, "max_function_length_override")
+            and self.__class__.max_function_length_override
+        ):
+            self.config.max_function_length = self.__class__.max_function_length_override
+        if (
+            hasattr(self.__class__, "max_class_length_override")
+            and self.__class__.max_class_length_override
+        ):
+            self.config.max_class_length = self.__class__.max_class_length_override
 
         try:
-            self._analyze_code(code)
+            yield from self._analyze_ast()
         except (SyntaxError, Exception):
             # Skip files with syntax errors or other processing issues
             pass
 
-        return self._errors
+    def _analyze_ast(self) -> Iterator[Tuple[int, int, str, str]]:
+        """Analyze the AST tree and yield flake8 errors."""
+        visitor = ASTVisitor()
+        visitor.visit(self.tree)
 
-    def _apply_command_line_params(self, params: dict) -> None:
-        """Apply command line parameters to override config."""
-        if "length_max_function" in params and params["length_max_function"] is not None:
-            self.config.max_function_length = params["length_max_function"]
-        if "length_max_class" in params and params["length_max_class"] is not None:
-            self.config.max_class_length = params["length_max_class"]
+        # Get the source code to count lines
+        source_code = self._get_source_code()
+        if source_code is None:
+            return
+
+        source_lines = source_code.splitlines()
+        line_counter = LineCounter(source_lines)
+
+        for element in visitor.get_all_elements():
+            yield from self._check_element_violations(element, line_counter, source_code)
 
     def _load_config_if_needed(self) -> None:
         """Load configuration from pyproject.toml if not manually configured."""
@@ -93,56 +93,42 @@ class LengthCheckerPlugin:
             self.config = LengthCheckerConfig.from_pyproject_toml()
             self._config_loaded = True
 
-    def _get_file_content(self, path: str, code: Optional[str]) -> Optional[str]:
-        """Get file content, reading from path if code is None."""
-        if code is not None:
-            return code
+    def _get_source_code(self) -> Optional[str]:
+        """Get source code from filename."""
+        if self.filename == "<stdin>":
+            return None
 
         try:
-            with open(path, "r", encoding="utf-8") as f:
+            with open(self.filename, "r", encoding="utf-8") as f:
                 return f.read()
         except Exception:
             return None
 
-    def _analyze_code(self, code: str) -> None:
-        """Parse and analyze code for length violations."""
-        tree = ast.parse(code)
-        visitor = ASTVisitor()
-        visitor.visit(tree)
-
-        source_lines = code.splitlines()
-        line_counter = LineCounter(source_lines)
-
-        for element in visitor.get_all_elements():
-            self._check_element_violations(element, line_counter, code)
-
-    def _check_element_violations(self, element, line_counter, code: str) -> None:
-        """Check a single element for length violations."""
+    def _check_element_violations(
+        self, element, line_counter, code: str
+    ) -> Iterator[Tuple[int, int, str, str]]:
+        """Check a single element for length violations and yield flake8 errors."""
         effective_lines = line_counter.count_element_lines(element, code)
 
         if element.node_type == "class" and effective_lines > self.config.max_class_length:
-            self._add_class_violation(element, effective_lines)
+            yield self._create_class_violation(element, effective_lines)
         elif element.node_type == "function" and effective_lines > self.config.max_function_length:
-            self._add_function_violation(element, effective_lines)
+            yield self._create_function_violation(element, effective_lines)
 
-    def _add_class_violation(self, element, effective_lines: int) -> None:
-        """Add a class length violation."""
-        error_dict = {
-            "lnum": element.start_line,
-            "col": 0,
-            "text": f"LA102 Class '{element.name}' is {effective_lines} lines long, "
-            f"exceeds maximum of {self.config.max_class_length}",
-            "type": "LA102",
-        }
-        self._errors.append(error_dict)
+    def _create_class_violation(self, element, effective_lines: int) -> Tuple[int, int, str, str]:
+        """Create a class length violation tuple for flake8."""
+        message = (
+            f"EL002 Class '{element.name}' is {effective_lines} lines long, "
+            f"exceeds maximum of {self.config.max_class_length}"
+        )
+        return (element.start_line, 0, message, "EL002")
 
-    def _add_function_violation(self, element, effective_lines: int) -> None:
-        """Add a function length violation."""
-        error_dict = {
-            "lnum": element.start_line,
-            "col": 0,
-            "text": f"LA101 Function '{element.name}' is {effective_lines} lines long, "
-            f"exceeds maximum of {self.config.max_function_length}",
-            "type": "LA101",
-        }
-        self._errors.append(error_dict)
+    def _create_function_violation(
+        self, element, effective_lines: int
+    ) -> Tuple[int, int, str, str]:
+        """Create a function length violation tuple for flake8."""
+        message = (
+            f"EL001 Function '{element.name}' is {effective_lines} lines long, "
+            f"exceeds maximum of {self.config.max_function_length}"
+        )
+        return (element.start_line, 0, message, "EL001")
