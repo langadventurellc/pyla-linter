@@ -328,6 +328,240 @@ class ShortClass:
         assert any("inner_function" in msg for msg in error_messages)
 
 
+class TestErrorReporting:
+    """Test comprehensive error reporting functionality."""
+
+    def test_error_message_format_function(self):
+        """Test that function error messages follow correct format."""
+        code = """def long_function():
+    line1 = 1
+    line2 = 2
+    line3 = 3
+    return line1 + line2 + line3"""
+
+        plugin = LengthCheckerPlugin()
+        config = LengthCheckerConfig(max_function_length=3)
+        plugin.set_config(config)
+
+        errors = plugin.run("test.py", code)
+        assert len(errors) == 1
+
+        line, column, message = errors[0]
+        assert line == 1  # Error reported on function definition line
+        assert column == 0  # Column should be 0
+        assert message.startswith("LA102")
+        assert "long_function" in message
+        assert "5 lines long" in message
+        assert "exceeds maximum of 3" in message
+
+    def test_error_message_format_class(self):
+        """Test that class error messages follow correct format."""
+        code = """class LongClass:
+    def method1(self):
+        return 1
+    def method2(self):
+        return 2
+    def method3(self):
+        return 3"""
+
+        plugin = LengthCheckerPlugin()
+        config = LengthCheckerConfig(max_class_length=5)
+        plugin.set_config(config)
+
+        errors = plugin.run("test.py", code)
+        assert len(errors) == 1
+
+        line, column, message = errors[0]
+        assert line == 1  # Error reported on class definition line
+        assert column == 0  # Column should be 0
+        assert message.startswith("LA101")
+        assert "LongClass" in message
+        assert "7 lines long" in message
+        assert "exceeds maximum of 5" in message
+
+    def test_error_codes_are_unique(self):
+        """Test that class and function violations have different error codes."""
+        code = """class TooLongClass:
+    def too_long_function(self):
+        line1 = 1
+        line2 = 2
+        line3 = 3
+        line4 = 4
+        return line1 + line2 + line3 + line4"""
+
+        plugin = LengthCheckerPlugin()
+        config = LengthCheckerConfig(max_function_length=3, max_class_length=5)
+        plugin.set_config(config)
+
+        errors = plugin.run("test.py", code)
+        assert len(errors) == 2
+
+        error_codes = [error[2][:5] for error in errors]
+        assert "LA101" in error_codes  # Class error
+        assert "LA102" in error_codes  # Function error
+
+    def test_error_line_positioning(self):
+        """Test that errors are reported on correct line numbers."""
+        code = """# First line comment
+
+class FirstClass:
+    def method1(self):
+        return 1
+    def method2(self):
+        return 2
+
+def first_function():
+    line1 = 1
+    line2 = 2
+    line3 = 3
+
+class SecondClass:
+    def method1(self):
+        return 1
+    def method2(self):
+        return 2
+    def method3(self):
+        return 3"""
+
+        plugin = LengthCheckerPlugin()
+        config = LengthCheckerConfig(max_function_length=2, max_class_length=3)
+        plugin.set_config(config)
+
+        errors = plugin.run("test.py", code)
+        # Should have violations for first_function, FirstClass, and SecondClass
+        assert len(errors) == 3
+
+        # Check that line numbers are correct
+        error_lines = [error[0] for error in errors]
+        assert 3 in error_lines  # FirstClass starts at line 3
+        assert 9 in error_lines  # first_function starts at line 9
+        assert 14 in error_lines  # SecondClass starts at line 14
+
+    def test_configuration_threshold_exact_match(self):
+        """Test behavior when code length exactly matches configured limits."""
+        code = """def exact_limit_function():
+    line1 = 1
+    line2 = 2
+    return line1 + line2"""
+
+        plugin = LengthCheckerPlugin()
+        config = LengthCheckerConfig(max_function_length=4)  # Exactly 4 lines
+        plugin.set_config(config)
+
+        errors = plugin.run("test.py", code)
+        # Should have no violations when exactly at limit
+        assert len(errors) == 0
+
+    def test_configuration_threshold_one_over_limit(self):
+        """Test behavior when code length is one line over configured limits."""
+        code = """def one_over_limit_function():
+    line1 = 1
+    line2 = 2
+    line3 = 3
+    return line1 + line2 + line3"""
+
+        plugin = LengthCheckerPlugin()
+        config = LengthCheckerConfig(max_function_length=4)  # 5 lines > 4 limit
+        plugin.set_config(config)
+
+        errors = plugin.run("test.py", code)
+        # Should have exactly 1 violation
+        assert len(errors) == 1
+        assert "5 lines long, exceeds maximum of 4" in errors[0][2]
+
+    def test_multiple_error_ordering(self):
+        """Test that multiple errors are reported in source code order."""
+        code = """def first_function():
+    line1 = 1
+    line2 = 2
+    line3 = 3
+    return line1 + line2 + line3
+
+def second_function():
+    line1 = 1
+    line2 = 2
+    line3 = 3
+    return line1 + line2 + line3"""
+
+        plugin = LengthCheckerPlugin()
+        config = LengthCheckerConfig(max_function_length=3)
+        plugin.set_config(config)
+
+        errors = plugin.run("test.py", code)
+        assert len(errors) == 2
+
+        # Errors should be in source order
+        assert errors[0][0] < errors[1][0]  # First error line < second error line
+        assert "first_function" in errors[0][2]
+        assert "second_function" in errors[1][2]
+
+    def test_error_message_includes_actual_and_max_lengths(self):
+        """Test that error messages include both actual and maximum lengths."""
+        code = """def test_function():
+    line1 = 1
+    line2 = 2
+    line3 = 3
+    line4 = 4
+    line5 = 5
+    line6 = 6
+    return line1 + line2 + line3 + line4 + line5 + line6"""
+
+        plugin = LengthCheckerPlugin()
+        config = LengthCheckerConfig(max_function_length=5)
+        plugin.set_config(config)
+
+        errors = plugin.run("test.py", code)
+        assert len(errors) == 1
+
+        message = errors[0][2]
+        assert "8 lines long" in message  # Actual length
+        assert "exceeds maximum of 5" in message  # Configured limit
+
+    def test_error_reporting_with_file_reading(self):
+        """Test error reporting when plugin reads file from disk."""
+        import os
+        import tempfile
+
+        code = """def file_function():
+    line1 = 1
+    line2 = 2
+    line3 = 3
+    return line1 + line2 + line3"""
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
+            f.write(code)
+            temp_path = f.name
+
+        try:
+            plugin = LengthCheckerPlugin()
+            config = LengthCheckerConfig(max_function_length=3)
+            plugin.set_config(config)
+
+            # Test with code=None to force file reading
+            errors = plugin.run(temp_path, code=None)
+            assert len(errors) == 1
+            assert "LA102" in errors[0][2]
+            assert "file_function" in errors[0][2]
+        finally:
+            os.unlink(temp_path)
+
+    def test_error_reporting_resilience_to_invalid_files(self):
+        """Test that error reporting handles invalid files gracefully."""
+        plugin = LengthCheckerPlugin()
+
+        # Test with non-existent file
+        errors = plugin.run("/nonexistent/file.py", code=None)
+        assert errors == []
+
+        # Test with invalid code that would cause processing errors
+        invalid_code = """def broken_function(
+    # This is broken syntax
+    return 42"""
+
+        errors = plugin.run("test.py", invalid_code)
+        assert errors == []  # Should handle gracefully, not crash
+
+
 class TestEdgeCases:
     """Test edge cases and corner scenarios."""
 
