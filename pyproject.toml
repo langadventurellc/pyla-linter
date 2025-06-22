@@ -1,0 +1,49 @@
+[tool.poetry]
+name = "pyla-linter"
+version = "1.0.0"
+description = "Python linter for LangAdventure products"
+authors = ["LangAdventure"]
+readme = "README.md"
+packages = [{include = "src"}]
+
+[tool.poetry.dependencies]
+python = "^3.12"
+pyla-logger = "^1.0.0"
+
+[tool.poetry.group.dev.dependencies]
+black = "^23.1.0"
+isort = "^5.12.0"
+pylama = {extras = ["toml"], version = "^8.4.1"}
+poethepoet = "^0.21.0"
+
+[[tool.poetry.source]]
+name = "gcp"
+url = "https://us-west1-python.pkg.dev/langadventure-shared-common/langadventure-python/simple/"
+priority = "supplemental"
+
+[[tool.poetry.source]]
+name = "gcp-pub"
+url = "https://us-west1-python.pkg.dev/langadventure-shared-common/langadventure-python/"
+priority = "supplemental"
+
+[tool.isort]
+multi_line_output = 3
+include_trailing_comma = true
+ensure_newline_before_comments = true
+split_on_trailing_comma = true
+force_grid_wrap = 0
+line_length = 100
+src_paths = ["src"]
+
+[tool.black]
+line-length = 100
+
+[tool.poe.tasks]
+black = "black ."
+isort = "isort ."
+lint = "pylama"
+autolint = ["black", "isort", "lint"]
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
