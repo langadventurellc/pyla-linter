@@ -58,3 +58,12 @@ isort = "isort ."
 lint = "pylama"
 format = ["black", "isort"]
 autolint = ["black", "isort", "lint"]
+
+[tool.poetry.plugins."pylama.linter"]
+length_checker = "src.linters.length_checker.plugin:LengthCheckerPlugin"
+
+[tool.pyla-linters]
+# Maximum lines for functions (excluding docstrings and comments)
+max_function_length = 40
+# Maximum lines for classes (excluding docstrings and comments)
+max_class_length = 200
