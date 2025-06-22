@@ -1,0 +1,70 @@
+version: 2.1
+
+parameters:
+  deploy-project-id:
+    type: string
+    default: "langadventure-shared-common"
+
+  action:
+    type: enum
+    enum: [cicd, force-deploy]
+    default: cicd
+
+jobs:
+  deploy:
+    docker:
+      - image: us-west1-docker.pkg.dev/langadventure-shared-common/langadventure-docker/gcp-poetry:latest
+        auth:
+          username: _json_key
+          password: $GOOGLE_CREDENTIALS_JSON
+    parameters:
+      package_name:
+        type: string
+        default: ${CIRCLE_PROJECT_REPONAME}
+    steps:
+      - checkout
+      - run:
+          name: Configure Python to use Artifact Registry
+          command: |
+            echo $GOOGLE_CREDENTIALS_JSON > ./gcloud-key.json
+            gcloud auth activate-service-account --key-file=./gcloud-key.json
+      - when:
+          condition:
+            equal: [ force-deploy, << pipeline.parameters.action >> ]
+          steps:
+            - run:
+                name: Update version
+                command: |
+                  poetry version $(poetry version -s).b$CIRCLE_BUILD_NUM
+      - run:
+          name: Build
+          command: |
+            poetry build
+      - run:
+          name: Publish
+          command: |
+            poetry publish -r gcp-pub
+      - run:
+          name: Revoke Auth
+          command: |
+            gcloud auth revoke --all
+ 
+workflows:
+  build-and-deploy:
+    when:
+      equal: [ cicd, << pipeline.parameters.action >> ]
+    jobs:
+      - deploy:
+          context:
+            - gcp
+          filters:
+            branches:
+              only: main
+
+  force-deploy:
+    when:
+      equal: [ force-deploy, << pipeline.parameters.action >> ]
+    jobs:
+      - deploy:
+          context:
+            - gcp
