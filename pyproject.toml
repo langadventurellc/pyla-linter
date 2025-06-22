@@ -13,12 +13,12 @@ pyla-logger = "^1.0.0"
 [tool.poetry.group.dev.dependencies]
 black = "^23.1.0"
 isort = "^5.12.0"
-pylama = {extras = ["toml"], version = "^8.4.1"}
 poethepoet = "^0.21.0"
 setuptools = "^75.8.0"
 pyright = "^1.1.402"
 pytest = "^8.4.0"
 pytest-mock = "^3.14.1"
+flake8-pyproject = "^1.2.3"
 
 [[tool.poetry.source]]
 name = "gcp"
@@ -52,6 +52,10 @@ src_paths = ["src"]
 [tool.black]
 line-length = 100
 
+[tool.flake8]
+exclude = ["bin", "temp", ".venv"]
+max-line-length = 100
+
 [tool.pyright]
 include = ["src"]
 exclude = ["bin", "temp", ".venv"]
@@ -59,7 +63,7 @@ exclude = ["bin", "temp", ".venv"]
 [tool.poe.tasks]
 black = "black ."
 isort = "isort ."
-lint = "pylama"
+lint = "flake8"
 format = ["black", "isort"]
 autolint = ["black", "isort", "lint"]
 
@@ -67,22 +71,5 @@ autolint = ["black", "isort", "lint"]
 length_checker = "src.linters.length_checker.plugin:LengthCheckerPlugin"
 
 [tool.pyla-linters]
-# Length Checker Plugin Configuration
-# 
-# Maximum lines for functions (excluding docstrings, comments, and empty lines)
-# Default: 40 lines
 max_function_length = 40
-
-# Maximum lines for classes (excluding docstrings, comments, and empty lines)
-# Default: 200 lines  
 max_class_length = 200
-
-# Example configurations for different coding standards:
-#
-# Strict configuration (smaller functions/classes):
-# max_function_length = 20
-# max_class_length = 100
-#
-# Relaxed configuration (larger functions/classes):
-# max_function_length = 60
-# max_class_length = 300
