@@ -63,7 +63,22 @@ autolint = ["black", "isort", "lint"]
 length_checker = "src.linters.length_checker.plugin:LengthCheckerPlugin"
 
 [tool.pyla-linters]
-# Maximum lines for functions (excluding docstrings and comments)
+# Length Checker Plugin Configuration
+# 
+# Maximum lines for functions (excluding docstrings, comments, and empty lines)
+# Default: 40 lines
 max_function_length = 40
-# Maximum lines for classes (excluding docstrings and comments)
+
+# Maximum lines for classes (excluding docstrings, comments, and empty lines)
+# Default: 200 lines  
 max_class_length = 200
+
+# Example configurations for different coding standards:
+#
+# Strict configuration (smaller functions/classes):
+# max_function_length = 20
+# max_class_length = 100
+#
+# Relaxed configuration (larger functions/classes):
+# max_function_length = 60
+# max_class_length = 300

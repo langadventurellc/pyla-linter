@@ -226,7 +226,7 @@ class ShortClass:
 
         errors = plugin.run("test.py", code)
         assert len(errors) == 1
-        assert "LA102" in errors[0]["text"]
+        assert "LA101" in errors[0]["text"]
         assert "long_function" in errors[0]["text"]
 
     def test_class_violation_detection(self):
@@ -247,7 +247,7 @@ class ShortClass:
 
         errors = plugin.run("test.py", code)
         assert len(errors) == 1
-        assert "LA101" in errors[0]["text"]
+        assert "LA102" in errors[0]["text"]
         assert "LongClass" in errors[0]["text"]
 
     def test_multiple_violations(self):
@@ -349,7 +349,7 @@ class TestErrorReporting:
         error = errors[0]
         assert error["lnum"] == 1  # Error reported on function definition line
         assert error["col"] == 0  # Column should be 0
-        assert error["text"].startswith("LA102")
+        assert error["text"].startswith("LA101")
         assert "long_function" in error["text"]
         assert "5 lines long" in error["text"]
         assert "exceeds maximum of 3" in error["text"]
@@ -374,7 +374,7 @@ class TestErrorReporting:
         error = errors[0]
         assert error["lnum"] == 1  # Error reported on class definition line
         assert error["col"] == 0  # Column should be 0
-        assert error["text"].startswith("LA101")
+        assert error["text"].startswith("LA102")
         assert "LongClass" in error["text"]
         assert "7 lines long" in error["text"]
         assert "exceeds maximum of 5" in error["text"]
@@ -397,8 +397,8 @@ class TestErrorReporting:
         assert len(errors) == 2
 
         error_codes = [error["text"][:5] for error in errors]
-        assert "LA101" in error_codes  # Class error
-        assert "LA102" in error_codes  # Function error
+        assert "LA102" in error_codes  # Class error
+        assert "LA101" in error_codes  # Function error
 
     def test_error_line_positioning(self):
         """Test that errors are reported on correct line numbers."""
@@ -540,7 +540,7 @@ def second_function():
             # Test with code=None to force file reading
             errors = plugin.run(temp_path, code=None)
             assert len(errors) == 1
-            assert "LA102" in errors[0]["text"]
+            assert "LA101" in errors[0]["text"]
             assert "file_function" in errors[0]["text"]
         finally:
             os.unlink(temp_path)
@@ -1438,8 +1438,8 @@ max_class_length = 200
 
             # Should contain our error codes in output
             output = result.stdout + result.stderr
-            assert "LA102" in output  # Function length violation
-            assert "LA101" in output  # Class length violation
+            assert "LA101" in output  # Function length violation
+            assert "LA102" in output  # Class length violation
             assert "very_long_function" in output
             assert "VeryLongClass" in output
 
@@ -1541,7 +1541,7 @@ max_class_length = 50
 
             # Should have violations with strict limits
             strict_output = result_strict.stdout + result_strict.stderr
-            assert "LA102" in strict_output
+            assert "LA101" in strict_output
 
             # Test with lenient limits - should not have violations
             lenient_pyproject = """
@@ -1560,7 +1560,7 @@ max_class_length = 200
 
             # Should not have violations with lenient limits
             lenient_output = result_lenient.stdout + result_lenient.stderr
-            assert "LA102" not in lenient_output
+            assert "LA101" not in lenient_output
 
     def test_pylama_integration_error_format(self):
         """Test that pylama integration produces correctly formatted errors."""
@@ -1609,7 +1609,7 @@ max_class_length = 50
             # Should contain correctly formatted error message
             # Pylama format is typically: filename:line:col: error_code message
             assert "test_format.py" in output
-            assert "LA102" in output
+            assert "LA101" in output
             assert "long_function" in output
             assert "8 lines long" in output
             assert "exceeds maximum of 5" in output
@@ -1671,7 +1671,7 @@ max_class_length = 50
 
             # Should find violation in file1 but not file2
             assert "file1.py" in output
-            assert "LA102" in output
+            assert "LA101" in output
             assert "violation_function" in output
 
             # Should not complain about file2's clean functions

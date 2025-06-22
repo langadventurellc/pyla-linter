@@ -130,9 +130,9 @@ class LengthCheckerPlugin:
         error_dict = {
             "lnum": element.start_line,
             "col": 0,
-            "text": f"LA101 Class '{element.name}' is {effective_lines} lines long, "
+            "text": f"LA102 Class '{element.name}' is {effective_lines} lines long, "
             f"exceeds maximum of {self.config.max_class_length}",
-            "type": "LA101",
+            "type": "LA102",
         }
         self._errors.append(error_dict)
 
@@ -141,8 +141,8 @@ class LengthCheckerPlugin:
         error_dict = {
             "lnum": element.start_line,
             "col": 0,
-            "text": f"LA102 Function '{element.name}' is {effective_lines} lines long, "
+            "text": f"LA101 Function '{element.name}' is {effective_lines} lines long, "
             f"exceeds maximum of {self.config.max_function_length}",
-            "type": "LA102",
+            "type": "LA101",
         }
         self._errors.append(error_dict)
