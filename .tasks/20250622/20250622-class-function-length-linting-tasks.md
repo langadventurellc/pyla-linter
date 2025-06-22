@@ -113,16 +113,22 @@ sequenceDiagram
   - `src/linters/length_checker/config.py` - Implemented LengthCheckerConfig class with pyproject.toml loading
   - `pyproject.toml` - Added plugin entry point under [tool.poetry.plugins."pylama.linter"] and example configuration under [tool.pyla-linters]
 
-- [ ] 2.0 Implement AST parsing and line counting logic
+- [x] 2.0 Implement AST parsing and line counting logic
 
-  - [ ] 2.1 Create AST visitor to traverse Python code structure
-  - [ ] 2.2 Implement line counting that excludes docstrings and comments
-  - [ ] 2.3 Handle nested classes/functions counting toward parent totals
-  - [ ] 2.4 Write unit tests for various code patterns
+  - [x] 2.1 Create AST visitor to traverse Python code structure
+  - [x] 2.2 Implement line counting that excludes docstrings and comments
+  - [x] 2.3 Handle nested classes/functions counting toward parent totals
+  - [x] 2.4 Write unit tests for various code patterns
 
   ### Files modified with description of changes
 
-  - (to be filled in after task completion)
+  - `src/linters/length_checker/ast_visitor.py` - Implemented comprehensive AST visitor with CodeElement class to track code structures, including decorator support for accurate line range detection
+  - `src/linters/length_checker/line_counter.py` - Implemented sophisticated line counting logic that excludes docstrings, comments, and empty lines while accurately counting actual code lines
+  - `src/linters/length_checker/plugin.py` - Enhanced plugin with complete AST analysis integration, configuration management, violation detection, and refactored for reduced complexity
+  - `src/tests/linters/length_checker/test_length_checker.py` - Added comprehensive unit tests covering AST parsing, line counting, plugin functionality, edge cases, and various code patterns (21 test methods, all passing)
+  - `src/tests/__init__.py` - Created test package initialization file
+  - `src/tests/linters/__init__.py` - Created linters test package initialization file  
+  - `src/tests/linters/length_checker/__init__.py` - Created length checker test package initialization file
 
 - [ ] 3.0 Implement violation detection and reporting
 
