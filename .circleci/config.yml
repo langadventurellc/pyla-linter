@@ -1,5 +1,8 @@
 version: 2.1
 
+orbs:
+  python: circleci/python@3.0.0
+
 parameters:
   deploy-project-id:
     type: string
@@ -11,12 +14,42 @@ parameters:
     default: cicd
 
 jobs:
+  build_and_test:
+    docker:
+      - image: ${GITHUB_DOCKER_HOST}/${GITHUB_DOCKER_NAMESPACE}/docker-gcp-poetry:3.12.1
+        auth:
+          username: $GITHUB_READ_PACKAGES_USER
+          password: $GITHUB_READ_PACKAGES_TOKEN
+    steps:
+      - checkout
+      - setup_remote_docker
+      - run:
+          name: Configure Docker to use Artifact Registry
+          command: |
+            echo $GOOGLE_CREDENTIALS_JSON > ./gcloud-key.json
+            gcloud auth activate-service-account --key-file=./gcloud-key.json
+      - python/install-packages:
+          pkg-manager: poetry
+      - run:
+          name: Run linter
+          command: |
+            eval $(poetry env activate)
+            poetry run poe lint
+      - run:
+          name: Run type checker
+          command: |
+            eval $(poetry env activate)
+            poetry run pyright
+      - run:
+          name: Run unit tests
+          command: poetry run pytest --junitxml=reports/junit.xml
+
   deploy:
     docker:
-      - image: us-west1-docker.pkg.dev/langadventure-shared-common/langadventure-docker/gcp-poetry:latest
+      - image: ${GITHUB_DOCKER_HOST}/${GITHUB_DOCKER_NAMESPACE}/docker-gcp-poetry:3.12.1
         auth:
-          username: _json_key
-          password: $GOOGLE_CREDENTIALS_JSON
+          username: $GITHUB_READ_PACKAGES_USER
+          password: $GITHUB_READ_PACKAGES_TOKEN
     parameters:
       package_name:
         type: string
@@ -50,6 +83,19 @@ jobs:
             gcloud auth revoke --all
  
 workflows:
+  build-and-test:
+    when:
+      and:
+        - not:
+            equal: [ force-deploy, << pipeline.parameters.action >> ]
+        - not:
+            equal: [ main, << pipeline.git.branch >> ]
+    jobs:
+      - build_and_test:
+          context:
+            - gcp
+            - github
+
   build-and-deploy:
     when:
       equal: [ cicd, << pipeline.parameters.action >> ]
@@ -57,6 +103,7 @@ workflows:
       - deploy:
           context:
             - gcp
+            - github
           filters:
             branches:
               only: main
@@ -68,3 +115,4 @@ workflows:
       - deploy:
           context:
             - gcp
+            - github

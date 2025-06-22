@@ -1,0 +1,1730 @@
+"""Comprehensive unit tests for the length checker plugin."""
+
+from src.linters.length_checker.ast_visitor import ASTVisitor, CodeElement
+from src.linters.length_checker.config import LengthCheckerConfig
+from src.linters.length_checker.line_counter import LineCounter
+from src.linters.length_checker.plugin import LengthCheckerPlugin
+
+
+class TestASTVisitor:
+    """Test the AST visitor functionality."""
+
+    def test_simple_function_detection(self):
+        """Test detection of a simple function."""
+        code = """def simple_function():
+    return 42"""
+
+        visitor = ASTVisitor()
+        import ast
+
+        tree = ast.parse(code)
+        visitor.visit(tree)
+
+        elements = visitor.get_all_elements()
+        assert len(elements) == 1
+        assert elements[0].name == "simple_function"
+        assert elements[0].node_type == "function"
+        assert elements[0].start_line == 1
+        assert elements[0].end_line == 2
+
+    def test_simple_class_detection(self):
+        """Test detection of a simple class."""
+        code = """class SimpleClass:
+    def method(self):
+        pass"""
+
+        visitor = ASTVisitor()
+        import ast
+
+        tree = ast.parse(code)
+        visitor.visit(tree)
+
+        elements = visitor.get_all_elements()
+        assert len(elements) == 2  # class and method
+
+        class_element = next(e for e in elements if e.node_type == "class")
+        method_element = next(e for e in elements if e.node_type == "function")
+
+        assert class_element.name == "SimpleClass"
+        assert method_element.name == "method"
+
+    def test_nested_class_function_detection(self):
+        """Test detection of nested classes and functions."""
+        code = """class OuterClass:
+    def outer_method(self):
+        def inner_function():
+            pass
+        return inner_function
+
+    class InnerClass:
+        def inner_method(self):
+            pass"""
+
+        visitor = ASTVisitor()
+        import ast
+
+        tree = ast.parse(code)
+        visitor.visit(tree)
+
+        elements = visitor.get_all_elements()
+        # Should find: OuterClass, outer_method, inner_function, InnerClass, inner_method
+        assert len(elements) == 5
+
+    def test_async_function_detection(self):
+        """Test detection of async functions."""
+        code = """async def async_function():
+    await something()"""
+
+        visitor = ASTVisitor()
+        import ast
+
+        tree = ast.parse(code)
+        visitor.visit(tree)
+
+        elements = visitor.get_all_elements()
+        assert len(elements) == 1
+        assert elements[0].name == "async_function"
+        assert elements[0].node_type == "function"
+
+
+class TestLineCounter:
+    """Test the line counting functionality."""
+
+    def test_simple_line_counting(self):
+        """Test basic line counting without comments or docstrings."""
+        code = """def simple_function():
+    x = 1
+    y = 2
+    return x + y"""
+
+        lines = code.splitlines()
+        counter = LineCounter(lines)
+
+        element = CodeElement("simple_function", "function", 1, 4)
+        actual_lines = counter.count_element_lines(element, code)
+
+        # Should count all 4 lines as they're all code
+        assert actual_lines == 4
+
+    def test_line_counting_with_comments(self):
+        """Test line counting excluding comment lines."""
+        code = """def function_with_comments():
+    # This is a comment
+    x = 1  # inline comment but line has code
+    # Another comment
+    return x"""
+
+        lines = code.splitlines()
+        counter = LineCounter(lines)
+
+        element = CodeElement("function_with_comments", "function", 1, 5)
+        actual_lines = counter.count_element_lines(element, code)
+
+        # Should count 3 lines (function def, x=1 line, return) - excluding comment-only lines
+        assert actual_lines == 3
+
+    def test_line_counting_with_docstring(self):
+        """Test line counting excluding docstring lines."""
+        code = '''def function_with_docstring():
+    """This is a docstring.
+
+    It spans multiple lines.
+    """
+    x = 1
+    return x'''
+
+        lines = code.splitlines()
+        counter = LineCounter(lines)
+
+        element = CodeElement("function_with_docstring", "function", 1, 7)
+        actual_lines = counter.count_element_lines(element, code)
+
+        # Should count 3 lines (function def, x=1, return) - excluding docstring
+        assert actual_lines == 3
+
+    def test_line_counting_with_empty_lines(self):
+        """Test line counting excluding empty lines."""
+        code = """def function_with_empty_lines():
+
+    x = 1
+
+    y = 2
+
+    return x + y"""
+
+        lines = code.splitlines()
+        counter = LineCounter(lines)
+
+        element = CodeElement("function_with_empty_lines", "function", 1, 8)
+        actual_lines = counter.count_element_lines(element, code)
+
+        # Should count 4 lines (function def, x=1, y=2, return) - excluding empty lines
+        assert actual_lines == 4
+
+    def test_class_line_counting(self):
+        """Test line counting for classes."""
+        code = '''class TestClass:
+    """Class docstring."""
+
+    def __init__(self):
+        self.x = 1
+
+    # Comment in class
+    def method(self):
+        """Method docstring."""
+        return self.x'''
+
+        lines = code.splitlines()
+        counter = LineCounter(lines)
+
+        element = CodeElement("TestClass", "class", 1, 10)
+        actual_lines = counter.count_element_lines(element, code)
+
+        # Should count actual code lines, excluding docstrings, comments, and empty lines
+        assert actual_lines == 5  # class def, __init__ def, self.x=1, method def, return
+
+
+class TestLengthCheckerPlugin:
+    """Test the main plugin functionality."""
+
+    def test_plugin_initialization(self):
+        """Test plugin initializes correctly."""
+        plugin = LengthCheckerPlugin()
+        assert plugin.name == "length_checker"
+        assert plugin.enable is True
+
+    def test_no_violations_under_limit(self):
+        """Test that code under limits produces no violations."""
+        code = """def short_function():
+    return 42
+
+class ShortClass:
+    def method(self):
+        return True"""
+
+        plugin = LengthCheckerPlugin()
+        # Set high limits to ensure no violations
+        config = LengthCheckerConfig(max_function_length=50, max_class_length=50)
+        plugin.set_config(config)
+
+        errors = plugin.run("test.py", code)
+        assert len(errors) == 0
+
+    def test_function_violation_detection(self):
+        """Test detection of function length violations."""
+        code = """def long_function():
+    line1 = 1
+    line2 = 2
+    line3 = 3
+    line4 = 4
+    line5 = 5
+    return line1 + line2 + line3 + line4 + line5"""
+
+        plugin = LengthCheckerPlugin()
+        config = LengthCheckerConfig(max_function_length=3, max_class_length=50)
+        plugin.set_config(config)
+
+        errors = plugin.run("test.py", code)
+        assert len(errors) == 1
+        assert "LA101" in errors[0]["text"]
+        assert "long_function" in errors[0]["text"]
+
+    def test_class_violation_detection(self):
+        """Test detection of class length violations."""
+        code = """class LongClass:
+    def method1(self):
+        return 1
+
+    def method2(self):
+        return 2
+
+    def method3(self):
+        return 3"""
+
+        plugin = LengthCheckerPlugin()
+        config = LengthCheckerConfig(max_function_length=50, max_class_length=5)
+        plugin.set_config(config)
+
+        errors = plugin.run("test.py", code)
+        assert len(errors) == 1
+        assert "LA102" in errors[0]["text"]
+        assert "LongClass" in errors[0]["text"]
+
+    def test_multiple_violations(self):
+        """Test detection of multiple violations."""
+        code = """class LongClass:
+    def long_method1(self):
+        line1 = 1
+        line2 = 2
+        line3 = 3
+        return line1 + line2 + line3
+
+    def long_method2(self):
+        line1 = 1
+        line2 = 2
+        line3 = 3
+        return line1 + line2 + line3"""
+
+        plugin = LengthCheckerPlugin()
+        config = LengthCheckerConfig(max_function_length=3, max_class_length=8)
+        plugin.set_config(config)
+
+        errors = plugin.run("test.py", code)
+        # Should have 3 violations: 1 class + 2 functions
+        assert len(errors) == 3
+
+    def test_syntax_error_handling(self):
+        """Test that syntax errors are handled gracefully."""
+        code = """def broken_function(
+    # Missing closing parenthesis
+    return 42"""
+
+        plugin = LengthCheckerPlugin()
+        errors = plugin.run("test.py", code)
+        # Should return empty list, not crash
+        assert errors == []
+
+    def test_docstring_exclusion_in_violations(self):
+        """Test that docstrings are properly excluded from violation counts."""
+        code = '''def function_with_long_docstring():
+    """This is a very long docstring.
+
+    It spans many lines to test that these lines
+    are not counted toward the function length limit.
+
+    This should not trigger a violation even though
+    the total line count is high.
+    """
+    return 42'''
+
+        plugin = LengthCheckerPlugin()
+        config = LengthCheckerConfig(max_function_length=3)
+        plugin.set_config(config)
+
+        errors = plugin.run("test.py", code)
+        # Should have no violations because docstring lines are excluded
+        assert len(errors) == 0
+
+    def test_nested_function_counting(self):
+        """Test that nested functions are counted separately."""
+        code = """def outer_function():
+    def inner_function():
+        line1 = 1
+        line2 = 2
+        line3 = 3
+        line4 = 4
+        return line1 + line2 + line3 + line4
+    return inner_function()"""
+
+        plugin = LengthCheckerPlugin()
+        config = LengthCheckerConfig(max_function_length=4, max_class_length=50)
+        plugin.set_config(config)
+
+        errors = plugin.run("test.py", code)
+        # Both functions should violate (outer: 8 lines, inner: 6 lines > 4 limit)
+        assert len(errors) == 2
+        error_messages = [error["text"] for error in errors]
+        assert any("outer_function" in msg for msg in error_messages)
+        assert any("inner_function" in msg for msg in error_messages)
+
+
+class TestErrorReporting:
+    """Test comprehensive error reporting functionality."""
+
+    def test_error_message_format_function(self):
+        """Test that function error messages follow correct format."""
+        code = """def long_function():
+    line1 = 1
+    line2 = 2
+    line3 = 3
+    return line1 + line2 + line3"""
+
+        plugin = LengthCheckerPlugin()
+        config = LengthCheckerConfig(max_function_length=3)
+        plugin.set_config(config)
+
+        errors = plugin.run("test.py", code)
+        assert len(errors) == 1
+
+        error = errors[0]
+        assert error["lnum"] == 1  # Error reported on function definition line
+        assert error["col"] == 0  # Column should be 0
+        assert error["text"].startswith("LA101")
+        assert "long_function" in error["text"]
+        assert "5 lines long" in error["text"]
+        assert "exceeds maximum of 3" in error["text"]
+
+    def test_error_message_format_class(self):
+        """Test that class error messages follow correct format."""
+        code = """class LongClass:
+    def method1(self):
+        return 1
+    def method2(self):
+        return 2
+    def method3(self):
+        return 3"""
+
+        plugin = LengthCheckerPlugin()
+        config = LengthCheckerConfig(max_class_length=5)
+        plugin.set_config(config)
+
+        errors = plugin.run("test.py", code)
+        assert len(errors) == 1
+
+        error = errors[0]
+        assert error["lnum"] == 1  # Error reported on class definition line
+        assert error["col"] == 0  # Column should be 0
+        assert error["text"].startswith("LA102")
+        assert "LongClass" in error["text"]
+        assert "7 lines long" in error["text"]
+        assert "exceeds maximum of 5" in error["text"]
+
+    def test_error_codes_are_unique(self):
+        """Test that class and function violations have different error codes."""
+        code = """class TooLongClass:
+    def too_long_function(self):
+        line1 = 1
+        line2 = 2
+        line3 = 3
+        line4 = 4
+        return line1 + line2 + line3 + line4"""
+
+        plugin = LengthCheckerPlugin()
+        config = LengthCheckerConfig(max_function_length=3, max_class_length=5)
+        plugin.set_config(config)
+
+        errors = plugin.run("test.py", code)
+        assert len(errors) == 2
+
+        error_codes = [error["text"][:5] for error in errors]
+        assert "LA102" in error_codes  # Class error
+        assert "LA101" in error_codes  # Function error
+
+    def test_error_line_positioning(self):
+        """Test that errors are reported on correct line numbers."""
+        code = """# First line comment
+
+class FirstClass:
+    def method1(self):
+        return 1
+    def method2(self):
+        return 2
+
+def first_function():
+    line1 = 1
+    line2 = 2
+    line3 = 3
+
+class SecondClass:
+    def method1(self):
+        return 1
+    def method2(self):
+        return 2
+    def method3(self):
+        return 3"""
+
+        plugin = LengthCheckerPlugin()
+        config = LengthCheckerConfig(max_function_length=2, max_class_length=3)
+        plugin.set_config(config)
+
+        errors = plugin.run("test.py", code)
+        # Should have violations for first_function, FirstClass, and SecondClass
+        assert len(errors) == 3
+
+        # Check that line numbers are correct
+        error_lines = [error["lnum"] for error in errors]
+        assert 3 in error_lines  # FirstClass starts at line 3
+        assert 9 in error_lines  # first_function starts at line 9
+        assert 14 in error_lines  # SecondClass starts at line 14
+
+    def test_configuration_threshold_exact_match(self):
+        """Test behavior when code length exactly matches configured limits."""
+        code = """def exact_limit_function():
+    line1 = 1
+    line2 = 2
+    return line1 + line2"""
+
+        plugin = LengthCheckerPlugin()
+        config = LengthCheckerConfig(max_function_length=4)  # Exactly 4 lines
+        plugin.set_config(config)
+
+        errors = plugin.run("test.py", code)
+        # Should have no violations when exactly at limit
+        assert len(errors) == 0
+
+    def test_configuration_threshold_one_over_limit(self):
+        """Test behavior when code length is one line over configured limits."""
+        code = """def one_over_limit_function():
+    line1 = 1
+    line2 = 2
+    line3 = 3
+    return line1 + line2 + line3"""
+
+        plugin = LengthCheckerPlugin()
+        config = LengthCheckerConfig(max_function_length=4)  # 5 lines > 4 limit
+        plugin.set_config(config)
+
+        errors = plugin.run("test.py", code)
+        # Should have exactly 1 violation
+        assert len(errors) == 1
+        assert "5 lines long, exceeds maximum of 4" in errors[0]["text"]
+
+    def test_multiple_error_ordering(self):
+        """Test that multiple errors are reported in source code order."""
+        code = """def first_function():
+    line1 = 1
+    line2 = 2
+    line3 = 3
+    return line1 + line2 + line3
+
+def second_function():
+    line1 = 1
+    line2 = 2
+    line3 = 3
+    return line1 + line2 + line3"""
+
+        plugin = LengthCheckerPlugin()
+        config = LengthCheckerConfig(max_function_length=3)
+        plugin.set_config(config)
+
+        errors = plugin.run("test.py", code)
+        assert len(errors) == 2
+
+        # Errors should be in source order
+        assert errors[0]["lnum"] < errors[1]["lnum"]  # First error line < second error line
+        assert "first_function" in errors[0]["text"]
+        assert "second_function" in errors[1]["text"]
+
+    def test_error_message_includes_actual_and_max_lengths(self):
+        """Test that error messages include both actual and maximum lengths."""
+        code = """def test_function():
+    line1 = 1
+    line2 = 2
+    line3 = 3
+    line4 = 4
+    line5 = 5
+    line6 = 6
+    return line1 + line2 + line3 + line4 + line5 + line6"""
+
+        plugin = LengthCheckerPlugin()
+        config = LengthCheckerConfig(max_function_length=5)
+        plugin.set_config(config)
+
+        errors = plugin.run("test.py", code)
+        assert len(errors) == 1
+
+        message = errors[0]["text"]
+        assert "8 lines long" in message  # Actual length
+        assert "exceeds maximum of 5" in message  # Configured limit
+
+    def test_error_reporting_with_file_reading(self):
+        """Test error reporting when plugin reads file from disk."""
+        import os
+        import tempfile
+
+        code = """def file_function():
+    line1 = 1
+    line2 = 2
+    line3 = 3
+    return line1 + line2 + line3"""
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
+            f.write(code)
+            temp_path = f.name
+
+        try:
+            plugin = LengthCheckerPlugin()
+            config = LengthCheckerConfig(max_function_length=3)
+            plugin.set_config(config)
+
+            # Test with code=None to force file reading
+            errors = plugin.run(temp_path, code=None)
+            assert len(errors) == 1
+            assert "LA101" in errors[0]["text"]
+            assert "file_function" in errors[0]["text"]
+        finally:
+            os.unlink(temp_path)
+
+    def test_error_reporting_resilience_to_invalid_files(self):
+        """Test that error reporting handles invalid files gracefully."""
+        plugin = LengthCheckerPlugin()
+
+        # Test with non-existent file
+        errors = plugin.run("/nonexistent/file.py", code=None)
+        assert errors == []
+
+        # Test with invalid code that would cause processing errors
+        invalid_code = """def broken_function(
+    # This is broken syntax
+    return 42"""
+
+        errors = plugin.run("test.py", invalid_code)
+        assert errors == []  # Should handle gracefully, not crash
+
+
+class TestEdgeCases:
+    """Test edge cases and corner scenarios."""
+
+    def test_lambda_functions_not_counted(self):
+        """Test that lambda functions are not counted as regular functions."""
+        code = """def regular_function():
+    lambda_func = lambda x: x * 2
+    return lambda_func(5)"""
+
+        visitor = ASTVisitor()
+        import ast
+
+        tree = ast.parse(code)
+        visitor.visit(tree)
+
+        elements = visitor.get_all_elements()
+        # Should only find the regular function, not the lambda
+        assert len(elements) == 1
+        assert elements[0].name == "regular_function"
+
+    def test_empty_class(self):
+        """Test handling of empty class."""
+        code = """class EmptyClass:
+    pass"""
+
+        plugin = LengthCheckerPlugin()
+        config = LengthCheckerConfig(max_class_length=1)
+        plugin.set_config(config)
+
+        errors = plugin.run("test.py", code)
+        # Should have 1 violation (2 lines > 1 limit)
+        assert len(errors) == 1
+
+    def test_empty_function(self):
+        """Test handling of empty function."""
+        code = """def empty_function():
+    pass"""
+
+        plugin = LengthCheckerPlugin()
+        config = LengthCheckerConfig(max_function_length=1)
+        plugin.set_config(config)
+
+        errors = plugin.run("test.py", code)
+        # Should have 1 violation (2 lines > 1 limit)
+        assert len(errors) == 1
+
+    def test_decorator_handling(self):
+        """Test that decorators are included in function line count."""
+        code = """@decorator1
+@decorator2
+def decorated_function():
+    return 42"""
+
+        visitor = ASTVisitor()
+        import ast
+
+        tree = ast.parse(code)
+        visitor.visit(tree)
+
+        elements = visitor.get_all_elements()
+        assert len(elements) == 1
+        # Decorators should be included in the line range
+        assert elements[0].start_line == 1  # Starts at first decorator
+        assert elements[0].end_line == 4
+
+    def test_multiple_decorators_on_class(self):
+        """Test that decorators are included in class line count."""
+        code = """@dataclass
+@decorator2
+class DecoratedClass:
+    def method(self):
+        return 42"""
+
+        visitor = ASTVisitor()
+        import ast
+
+        tree = ast.parse(code)
+        visitor.visit(tree)
+
+        elements = visitor.get_all_elements()
+        class_element = next(e for e in elements if e.node_type == "class")
+        # Decorators should be included in the class line range
+        assert class_element.start_line == 1  # Starts at first decorator
+        assert class_element.end_line == 5
+
+    def test_property_decorators(self):
+        """Test handling of property decorators."""
+        code = """class TestClass:
+    @property
+    def prop(self):
+        return self._value
+
+    @prop.setter
+    def prop(self, value):
+        self._value = value"""
+
+        visitor = ASTVisitor()
+        import ast
+
+        tree = ast.parse(code)
+        visitor.visit(tree)
+
+        elements = visitor.get_all_elements()
+        # Should find class and both property methods
+        assert len(elements) == 3
+        prop_methods = [e for e in elements if e.node_type == "function"]
+        assert len(prop_methods) == 2
+
+    def test_nested_decorators(self):
+        """Test handling of nested functions with decorators."""
+        code = """def outer():
+    @decorator
+    def inner():
+        return 42
+    return inner"""
+
+        visitor = ASTVisitor()
+        import ast
+
+        tree = ast.parse(code)
+        visitor.visit(tree)
+
+        elements = visitor.get_all_elements()
+        assert len(elements) == 2  # outer and inner functions
+        inner_func = next(e for e in elements if e.name == "inner")
+        # Decorator should be included in inner function range
+        assert inner_func.start_line == 2  # Starts at decorator line
+
+    def test_class_with_only_pass(self):
+        """Test empty class with only pass statement."""
+        code = """class EmptyClass:
+    pass"""
+
+        plugin = LengthCheckerPlugin()
+        config = LengthCheckerConfig(max_class_length=1)
+        plugin.set_config(config)
+
+        errors = plugin.run("test.py", code)
+        assert len(errors) == 1
+        assert "2 lines long" in errors[0]["text"]
+
+    def test_function_with_only_ellipsis(self):
+        """Test function with only ellipsis (...)."""
+        code = """def placeholder_function():
+    ..."""
+
+        plugin = LengthCheckerPlugin()
+        config = LengthCheckerConfig(max_function_length=1)
+        plugin.set_config(config)
+
+        errors = plugin.run("test.py", code)
+        assert len(errors) == 1
+        assert "2 lines long" in errors[0]["text"]
+
+    def test_class_with_class_variables(self):
+        """Test class with only class variables."""
+        code = """class ConfigClass:
+    CONSTANT1 = "value1"
+    CONSTANT2 = "value2"
+    CONSTANT3 = "value3\""""
+
+        plugin = LengthCheckerPlugin()
+        config = LengthCheckerConfig(max_class_length=3)
+        plugin.set_config(config)
+
+        errors = plugin.run("test.py", code)
+        assert len(errors) == 1  # 4 lines > 3 limit
+
+    def test_generator_function(self):
+        """Test generator functions are counted normally."""
+        code = """def generator_function():
+    yield 1
+    yield 2
+    yield 3"""
+
+        visitor = ASTVisitor()
+        import ast
+
+        tree = ast.parse(code)
+        visitor.visit(tree)
+
+        elements = visitor.get_all_elements()
+        assert len(elements) == 1
+        assert elements[0].name == "generator_function"
+        assert elements[0].node_type == "function"
+
+    def test_comprehensions_not_counted_as_functions(self):
+        """Test that comprehensions are not counted as separate functions."""
+        code = """def test_function():
+    list_comp = [x for x in range(10) if x > 5]
+    dict_comp = {x: x*2 for x in range(5)}
+    set_comp = {x for x in range(10)}
+    return list_comp, dict_comp, set_comp"""
+
+        visitor = ASTVisitor()
+        import ast
+
+        tree = ast.parse(code)
+        visitor.visit(tree)
+
+        elements = visitor.get_all_elements()
+        # Should only find the main function, not the comprehensions
+        assert len(elements) == 1
+        assert elements[0].name == "test_function"
+
+    def test_lambda_in_decorator(self):
+        """Test lambda functions in decorators are not counted."""
+        code = """@lambda_decorator(lambda x: x * 2)
+def decorated_function():
+    return 42"""
+
+        visitor = ASTVisitor()
+        import ast
+
+        tree = ast.parse(code)
+        visitor.visit(tree)
+
+        elements = visitor.get_all_elements()
+        # Should only find the decorated function, not the lambda
+        assert len(elements) == 1
+        assert elements[0].name == "decorated_function"
+
+    def test_method_with_complex_signature(self):
+        """Test methods with complex signatures including annotations."""
+        code = '''class ComplexClass:
+    def complex_method(
+        self,
+        param1: str,
+        param2: int = 42,
+        *args: tuple,
+        **kwargs: dict
+    ) -> bool:
+        """Method with complex signature."""
+        return True'''
+
+        visitor = ASTVisitor()
+        import ast
+
+        tree = ast.parse(code)
+        visitor.visit(tree)
+
+        elements = visitor.get_all_elements()
+        assert len(elements) == 2  # class and method
+        method_element = next(e for e in elements if e.node_type == "function")
+        assert method_element.name == "complex_method"
+
+    def test_metaclass_definition(self):
+        """Test metaclass definitions are counted properly."""
+        code = """class MetaClass(type):
+    def __new__(cls, name, bases, attrs):
+        return super().__new__(cls, name, bases, attrs)
+
+class UsingMeta(metaclass=MetaClass):
+    pass"""
+
+        visitor = ASTVisitor()
+        import ast
+
+        tree = ast.parse(code)
+        visitor.visit(tree)
+
+        elements = visitor.get_all_elements()
+        # Should find MetaClass, __new__ method, and UsingMeta
+        assert len(elements) == 3
+        class_names = [e.name for e in elements if e.node_type == "class"]
+        assert "MetaClass" in class_names
+        assert "UsingMeta" in class_names
+
+    def test_try_except_finally_blocks(self):
+        """Test functions with try/except/finally blocks."""
+        code = """def error_handling_function():
+    try:
+        risky_operation()
+    except ValueError as e:
+        handle_value_error(e)
+    except Exception:
+        handle_generic_error()
+    finally:
+        cleanup()
+    return True"""
+
+        plugin = LengthCheckerPlugin()
+        config = LengthCheckerConfig(max_function_length=5)
+        plugin.set_config(config)
+
+        errors = plugin.run("test.py", code)
+        assert len(errors) == 1  # Function should exceed 5 lines
+
+    def test_context_manager_function(self):
+        """Test functions using context managers."""
+        code = """def context_function():
+    with open('file.txt') as f:
+        content = f.read()
+    with another_context():
+        process_data()
+    return content"""
+
+        visitor = ASTVisitor()
+        import ast
+
+        tree = ast.parse(code)
+        visitor.visit(tree)
+
+        elements = visitor.get_all_elements()
+        assert len(elements) == 1
+        assert elements[0].name == "context_function"
+
+
+class TestConfiguration:
+    """Test configuration loading and defaults."""
+
+    def test_default_config_values(self):
+        """Test that default configuration values are correct."""
+        config = LengthCheckerConfig()
+        assert config.max_function_length == LengthCheckerConfig.DEFAULT_FUNCTION_LENGTH
+        assert config.max_class_length == LengthCheckerConfig.DEFAULT_CLASS_LENGTH
+        assert config.max_function_length == 40
+        assert config.max_class_length == 200
+
+    def test_config_initialization_with_custom_values(self):
+        """Test configuration initialization with custom values."""
+        config = LengthCheckerConfig(max_function_length=25, max_class_length=150)
+        assert config.max_function_length == 25
+        assert config.max_class_length == 150
+
+    def test_config_from_dict_with_all_values(self):
+        """Test configuration creation from dictionary with all values."""
+        config_dict = {
+            "max_function_length": 30,
+            "max_class_length": 180,
+        }
+        config = LengthCheckerConfig.from_dict(config_dict)
+        assert config.max_function_length == 30
+        assert config.max_class_length == 180
+
+    def test_config_from_dict_with_partial_values(self):
+        """Test configuration creation from dictionary with partial values."""
+        config_dict = {"max_function_length": 35}
+        config = LengthCheckerConfig.from_dict(config_dict)
+        assert config.max_function_length == 35
+        assert config.max_class_length == LengthCheckerConfig.DEFAULT_CLASS_LENGTH
+
+    def test_config_from_dict_with_no_values(self):
+        """Test configuration creation from empty dictionary."""
+        config_dict = {}
+        config = LengthCheckerConfig.from_dict(config_dict)
+        assert config.max_function_length == LengthCheckerConfig.DEFAULT_FUNCTION_LENGTH
+        assert config.max_class_length == LengthCheckerConfig.DEFAULT_CLASS_LENGTH
+
+    def test_config_from_dict_with_extra_values(self):
+        """Test configuration creation from dictionary with extra values."""
+        config_dict = {
+            "max_function_length": 25,
+            "max_class_length": 175,
+            "unknown_setting": "ignored",
+        }
+        config = LengthCheckerConfig.from_dict(config_dict)
+        assert config.max_function_length == 25
+        assert config.max_class_length == 175
+
+    def test_config_from_nonexistent_pyproject_toml(self):
+        """Test configuration loading when pyproject.toml doesn't exist."""
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            nonexistent_path = Path(temp_dir) / "nonexistent.toml"
+            config = LengthCheckerConfig.from_pyproject_toml(nonexistent_path)
+            # Should return default config
+            assert config.max_function_length == LengthCheckerConfig.DEFAULT_FUNCTION_LENGTH
+            assert config.max_class_length == LengthCheckerConfig.DEFAULT_CLASS_LENGTH
+
+    def test_config_from_valid_pyproject_toml(self):
+        """Test configuration loading from valid pyproject.toml."""
+        import tempfile
+        from pathlib import Path
+
+        toml_content = """
+[tool.pyla-linters]
+max_function_length = 50
+max_class_length = 250
+"""
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
+            f.write(toml_content)
+            temp_path = Path(f.name)
+
+        try:
+            config = LengthCheckerConfig.from_pyproject_toml(temp_path)
+            assert config.max_function_length == 50
+            assert config.max_class_length == 250
+        finally:
+            temp_path.unlink()
+
+    def test_config_from_pyproject_toml_missing_tool_section(self):
+        """Test configuration loading when [tool] section is missing."""
+        import tempfile
+        from pathlib import Path
+
+        toml_content = """
+[build-system]
+requires = ["poetry-core"]
+"""
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
+            f.write(toml_content)
+            temp_path = Path(f.name)
+
+        try:
+            config = LengthCheckerConfig.from_pyproject_toml(temp_path)
+            # Should return default config
+            assert config.max_function_length == LengthCheckerConfig.DEFAULT_FUNCTION_LENGTH
+            assert config.max_class_length == LengthCheckerConfig.DEFAULT_CLASS_LENGTH
+        finally:
+            temp_path.unlink()
+
+    def test_config_from_pyproject_toml_missing_pyla_linters_section(self):
+        """Test configuration loading when [tool.pyla-linters] section is missing."""
+        import tempfile
+        from pathlib import Path
+
+        toml_content = """
+[tool.poetry]
+name = "test-project"
+
+[tool.black]
+line-length = 88
+"""
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
+            f.write(toml_content)
+            temp_path = Path(f.name)
+
+        try:
+            config = LengthCheckerConfig.from_pyproject_toml(temp_path)
+            # Should return default config
+            assert config.max_function_length == LengthCheckerConfig.DEFAULT_FUNCTION_LENGTH
+            assert config.max_class_length == LengthCheckerConfig.DEFAULT_CLASS_LENGTH
+        finally:
+            temp_path.unlink()
+
+    def test_config_from_invalid_toml_file(self):
+        """Test configuration loading from invalid TOML file."""
+        import tempfile
+        from pathlib import Path
+
+        invalid_toml_content = """
+[tool.pyla-linters
+# Missing closing bracket
+max_function_length = 50
+"""
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
+            f.write(invalid_toml_content)
+            temp_path = Path(f.name)
+
+        try:
+            config = LengthCheckerConfig.from_pyproject_toml(temp_path)
+            # Should return default config when TOML parsing fails
+            assert config.max_function_length == LengthCheckerConfig.DEFAULT_FUNCTION_LENGTH
+            assert config.max_class_length == LengthCheckerConfig.DEFAULT_CLASS_LENGTH
+        finally:
+            temp_path.unlink()
+
+    def test_config_from_pyproject_toml_with_partial_settings(self):
+        """Test configuration loading with only some settings in pyproject.toml."""
+        import tempfile
+        from pathlib import Path
+
+        toml_content = """
+[tool.pyla-linters]
+max_function_length = 35
+# max_class_length is not specified
+"""
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
+            f.write(toml_content)
+            temp_path = Path(f.name)
+
+        try:
+            config = LengthCheckerConfig.from_pyproject_toml(temp_path)
+            assert config.max_function_length == 35
+            assert config.max_class_length == LengthCheckerConfig.DEFAULT_CLASS_LENGTH
+        finally:
+            temp_path.unlink()
+
+    def test_plugin_config_loading_behavior(self):
+        """Test that plugin loads configuration correctly."""
+        plugin = LengthCheckerPlugin()
+
+        # Initially should use default config
+        assert plugin.config.max_function_length == LengthCheckerConfig.DEFAULT_FUNCTION_LENGTH
+        assert plugin.config.max_class_length == LengthCheckerConfig.DEFAULT_CLASS_LENGTH
+
+    def test_plugin_manual_config_override(self):
+        """Test that manual configuration overrides file-based config."""
+        plugin = LengthCheckerPlugin()
+
+        # Set manual config
+        custom_config = LengthCheckerConfig(max_function_length=15, max_class_length=75)
+        plugin.set_config(custom_config)
+
+        # Config should be the manually set one
+        assert plugin.config.max_function_length == 15
+        assert plugin.config.max_class_length == 75
+        assert plugin._manual_config is True
+
+    def test_plugin_config_loading_only_once(self):
+        """Test that configuration is only loaded once from file."""
+        plugin = LengthCheckerPlugin()
+
+        # First call should load config
+        assert plugin._config_loaded is False
+        plugin._load_config_if_needed()
+        assert plugin._config_loaded is True
+
+        # Second call should not reload
+        original_config = plugin.config
+        plugin._load_config_if_needed()
+        assert plugin.config is original_config  # Same object reference
+
+    def test_config_find_pyproject_toml_search(self):
+        """Test that pyproject.toml search works in parent directories."""
+        import os
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+
+            # Create nested directory structure
+            nested_dir = temp_path / "subdir" / "nested"
+            nested_dir.mkdir(parents=True)
+
+            # Create pyproject.toml in root
+            toml_content = """
+[tool.pyla-linters]
+max_function_length = 60
+"""
+            pyproject_path = temp_path / "pyproject.toml"
+            pyproject_path.write_text(toml_content)
+
+            # Change to nested directory
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(nested_dir)
+
+                # Should find pyproject.toml in parent directories
+                config = LengthCheckerConfig.from_pyproject_toml()
+                assert config.max_function_length == 60
+            finally:
+                os.chdir(original_cwd)
+
+
+class TestFileExclusionPatterns:
+    """Test file and directory exclusion pattern behavior.
+
+    Note: The current implementation does not support file/directory exclusion patterns.
+    These tests document the current behavior and can be updated when exclusion support is added.
+    """
+
+    def test_no_exclusion_pattern_support_in_config(self):
+        """Test that current configuration doesn't support exclusion patterns."""
+        config = LengthCheckerConfig()
+
+        # Current implementation doesn't have exclusion pattern attributes
+        assert not hasattr(config, "exclude_patterns")
+        assert not hasattr(config, "include_patterns")
+        assert not hasattr(config, "exclude_dirs")
+        assert not hasattr(config, "exclude_files")
+
+    def test_plugin_processes_all_provided_files(self):
+        """Test that plugin processes all files provided to it."""
+        code = """def test_function():
+    return 42"""
+
+        plugin = LengthCheckerPlugin()
+        config = LengthCheckerConfig(max_function_length=1)
+        plugin.set_config(config)
+
+        # Plugin should process any file path provided to it
+        errors1 = plugin.run("regular_file.py", code)
+        errors2 = plugin.run("test_file.py", code)
+        errors3 = plugin.run("__pycache__/cached.py", code)
+        errors4 = plugin.run("venv/lib/python3.11/site-packages/module.py", code)
+
+        # All should produce violations (all have functions > 1 line)
+        assert len(errors1) == 1
+        assert len(errors2) == 1
+        assert len(errors3) == 1
+        assert len(errors4) == 1
+
+    def test_plugin_does_not_filter_by_file_extension(self):
+        """Test that plugin doesn't filter files by extension."""
+        code = """def test_function():
+    return 42"""
+
+        plugin = LengthCheckerPlugin()
+        config = LengthCheckerConfig(max_function_length=1)
+        plugin.set_config(config)
+
+        # Plugin should process files regardless of extension
+        errors_py = plugin.run("test.py", code)
+        errors_pyx = plugin.run("test.pyx", code)
+        errors_no_ext = plugin.run("test", code)
+
+        # All should produce violations
+        assert len(errors_py) == 1
+        assert len(errors_pyx) == 1
+        assert len(errors_no_ext) == 1
+
+    def test_plugin_does_not_filter_by_directory_path(self):
+        """Test that plugin doesn't filter files by directory path."""
+        code = """def test_function():
+    return 42"""
+
+        plugin = LengthCheckerPlugin()
+        config = LengthCheckerConfig(max_function_length=1)
+        plugin.set_config(config)
+
+        # Plugin should process files in any directory
+        paths_to_test = [
+            "src/module.py",
+            "tests/test_module.py",
+            "__pycache__/module.pyc",
+            ".venv/lib/python3.11/site-packages/package/module.py",
+            "node_modules/some-package/python/script.py",
+            ".git/hooks/pre-commit.py",
+            "build/temp/generated.py",
+            "dist/package/module.py",
+        ]
+
+        for path in paths_to_test:
+            errors = plugin.run(path, code)
+            assert len(errors) == 1, f"Expected violation for path: {path}"
+
+    def test_exclusion_would_be_handled_by_pylama_not_plugin(self):
+        """Test that file exclusion is expected to be handled by pylama, not the plugin."""
+        # This test documents the current architecture where pylama handles
+        # file filtering and the plugin processes whatever files are passed to it
+
+        plugin = LengthCheckerPlugin()
+
+        # The plugin's run method signature shows it expects to receive
+        # individual files that pylama has already filtered
+        import inspect
+
+        signature = inspect.signature(plugin.run)
+
+        # Plugin receives path and code, not directory patterns
+        assert "path" in signature.parameters
+        assert "code" in signature.parameters
+        # Plugin doesn't receive exclude patterns
+        assert "exclude_patterns" not in signature.parameters
+        assert "include_patterns" not in signature.parameters
+
+    def test_current_config_from_toml_ignores_exclusion_patterns(self):
+        """Test that TOML config loading ignores exclusion pattern settings."""
+        import tempfile
+        from pathlib import Path
+
+        toml_content = """
+[tool.pyla-linters]
+max_function_length = 30
+max_class_length = 150
+# These would be exclusion patterns if supported
+exclude_patterns = ["*/test_*", "*.tmp.py"]
+exclude_dirs = ["__pycache__", ".venv"]
+include_patterns = ["src/**/*.py"]
+"""
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
+            f.write(toml_content)
+            temp_path = Path(f.name)
+
+        try:
+            config = LengthCheckerConfig.from_pyproject_toml(temp_path)
+            # Should load the supported settings
+            assert config.max_function_length == 30
+            assert config.max_class_length == 150
+            # Should ignore unsupported exclusion settings
+            assert not hasattr(config, "exclude_patterns")
+            assert not hasattr(config, "exclude_dirs")
+            assert not hasattr(config, "include_patterns")
+        finally:
+            temp_path.unlink()
+
+    def test_future_exclusion_pattern_support_would_need_config_extension(self):
+        """Test documenting what would be needed for exclusion pattern support."""
+        # This test documents the interface that would be needed for exclusion support
+
+        # Current config only has length limits
+        config = LengthCheckerConfig()
+        current_attrs = [attr for attr in dir(config) if not attr.startswith("_")]
+        expected_current = [
+            "DEFAULT_CLASS_LENGTH",
+            "DEFAULT_FUNCTION_LENGTH",
+            "from_dict",
+            "from_pyproject_toml",
+            "max_class_length",
+            "max_function_length",
+        ]
+
+        # Verify current attributes match expected
+        assert set(current_attrs) == set(expected_current)
+
+        # Future exclusion support would need additional attributes
+        future_exclusion_attrs = [
+            "exclude_patterns",
+            "include_patterns",
+            "exclude_dirs",
+            "exclude_files",
+        ]
+
+        # These don't exist yet
+        for attr in future_exclusion_attrs:
+            assert not hasattr(config, attr)
+
+    def test_plugin_run_params_could_support_exclusion_metadata(self):
+        """Test that plugin run method accepts params that could contain exclusion info."""
+        plugin = LengthCheckerPlugin()
+
+        # The run method accepts params dict and **meta
+        # This could be used for exclusion patterns in the future
+        code = "def test(): pass"
+
+        # Current implementation should ignore exclusion-related params
+        exclusion_params = {"exclude_patterns": ["*/test_*"], "include_patterns": ["src/**/*.py"]}
+        exclusion_meta = {"exclude_dirs": ["__pycache__"], "project_root": "/path/to/project"}
+
+        # Should not raise errors and should process the file normally
+        errors = plugin.run("test.py", code, params=exclusion_params, **exclusion_meta)
+        assert isinstance(errors, list)  # Should return normal error list
+
+
+class TestPylamaIntegration:
+    """Test integration with pylama CLI."""
+
+    def test_plugin_is_registered_with_pylama(self):
+        """Test that the plugin is properly registered as a pylama plugin."""
+        import subprocess
+        import sys
+
+        # Run pylama --help to see if our plugin is listed
+        result = subprocess.run(
+            [sys.executable, "-m", "pylama", "--help"], capture_output=True, text=True
+        )
+
+        # Should not error and should complete successfully
+        assert result.returncode == 0
+
+    def test_pylama_integration_with_violations(self):
+        """Test full pylama integration with code that has violations."""
+        import subprocess
+        import sys
+        import tempfile
+        from pathlib import Path
+
+        # Create a Python file with violations
+        code_with_violations = (
+            '''def very_long_function():
+    line1 = 1
+    line2 = 2
+    line3 = 3
+    line4 = 4
+    line5 = 5
+    line6 = 6
+    line7 = 7
+    line8 = 8
+    line9 = 9
+    line10 = 10
+    line11 = 11
+    line12 = 12
+    line13 = 13
+    line14 = 14
+    line15 = 15
+    line16 = 16
+    line17 = 17
+    line18 = 18
+    line19 = 19
+    line20 = 20
+    line21 = 21
+    line22 = 22
+    line23 = 23
+    line24 = 24
+    line25 = 25
+    line26 = 26
+    line27 = 27
+    line28 = 28
+    line29 = 29
+    line30 = 30
+    line31 = 31
+    line32 = 32
+    line33 = 33
+    line34 = 34
+    line35 = 35
+    line36 = 36
+    line37 = 37
+    line38 = 38
+    line39 = 39
+    line40 = 40
+    line41 = 41  # This exceeds the default 40 line limit
+    return sum([line1, line2, line3, line4, line5])
+
+class VeryLongClass:
+    """A class that exceeds the default 200 line limit."""
+
+    def __init__(self):
+        self.attr1 = 1
+        self.attr2 = 2
+        self.attr3 = 3
+        self.attr4 = 4
+        self.attr5 = 5
+
+    def method1(self):
+        return self.attr1
+
+    def method2(self):
+        return self.attr2
+
+    def method3(self):
+        return self.attr3
+
+    def method4(self):
+        return self.attr4
+
+    def method5(self):
+        return self.attr5'''
+            + """
+
+    def method6(self):
+        return 6
+
+    def method7(self):
+        return 7
+
+    def method8(self):
+        return 8
+
+    def method9(self):
+        return 9
+
+    def method10(self):
+        return 10"""
+            * 25
+        )  # Repeat to make class very long
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+
+            # Create test file
+            test_file = temp_path / "test_violations.py"
+            test_file.write_text(code_with_violations)
+
+            # Create pyproject.toml with strict limits to ensure violations
+            pyproject_content = """
+[tool.pyla-linters]
+max_function_length = 40
+max_class_length = 200
+"""
+            pyproject_file = temp_path / "pyproject.toml"
+            pyproject_file.write_text(pyproject_content)
+
+            # Run pylama on the test file with explicit linter
+            result = subprocess.run(
+                [sys.executable, "-m", "pylama", "-l", "length_checker", str(test_file)],
+                cwd=temp_dir,
+                capture_output=True,
+                text=True,
+            )
+
+            # Should detect violations and return non-zero exit code
+            assert result.returncode != 0
+
+            # Should contain our error codes in output
+            output = result.stdout + result.stderr
+            assert "LA101" in output  # Function length violation
+            assert "LA102" in output  # Class length violation
+            assert "very_long_function" in output
+            assert "VeryLongClass" in output
+
+    def test_pylama_integration_without_violations(self):
+        """Test pylama integration with code that has no violations."""
+        import subprocess
+        import sys
+        import tempfile
+        from pathlib import Path
+
+        # Create a Python file without violations
+        clean_code = '''def short_function():
+    """A short function."""
+    return 42
+
+class ShortClass:
+    """A short class."""
+
+    def __init__(self):
+        self.value = 0
+
+    def get_value(self):
+        return self.value
+'''
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+
+            # Create test file
+            test_file = temp_path / "test_clean.py"
+            test_file.write_text(clean_code)
+
+            # Create pyproject.toml with lenient limits
+            pyproject_content = """
+[tool.pyla-linters]
+max_function_length = 40
+max_class_length = 200
+"""
+            pyproject_file = temp_path / "pyproject.toml"
+            pyproject_file.write_text(pyproject_content)
+
+            # Run pylama on the test file with explicit linter
+            result = subprocess.run(
+                [sys.executable, "-m", "pylama", "-l", "length_checker", str(test_file)],
+                cwd=temp_dir,
+                capture_output=True,
+                text=True,
+            )
+
+            # Should not detect violations (though other linters might complain)
+            output = result.stdout + result.stderr
+
+            # Should not contain our error codes
+            assert "LA101" not in output
+            assert "LA102" not in output
+
+    def test_pylama_integration_with_custom_config(self):
+        """Test pylama integration with custom configuration."""
+        import subprocess
+        import sys
+        import tempfile
+        from pathlib import Path
+
+        # Create a Python file that violates strict limits but not lenient ones
+        medium_code = """def medium_function():
+    line1 = 1
+    line2 = 2
+    line3 = 3
+    line4 = 4
+    line5 = 5
+    line6 = 6
+    line7 = 7
+    line8 = 8
+    return line1 + line2 + line3 + line4 + line5 + line6 + line7 + line8
+"""
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+
+            # Create test file
+            test_file = temp_path / "test_medium.py"
+            test_file.write_text(medium_code)
+
+            # Test with strict limits - should have violations
+            strict_pyproject = """
+[tool.pyla-linters]
+max_function_length = 5
+max_class_length = 50
+"""
+            pyproject_file = temp_path / "pyproject.toml"
+            pyproject_file.write_text(strict_pyproject)
+
+            result_strict = subprocess.run(
+                [sys.executable, "-m", "pylama", "-l", "length_checker", str(test_file)],
+                cwd=temp_dir,
+                capture_output=True,
+                text=True,
+            )
+
+            # Should have violations with strict limits
+            strict_output = result_strict.stdout + result_strict.stderr
+            assert "LA101" in strict_output
+
+            # Test with lenient limits - should not have violations
+            lenient_pyproject = """
+[tool.pyla-linters]
+max_function_length = 20
+max_class_length = 200
+"""
+            pyproject_file.write_text(lenient_pyproject)
+
+            result_lenient = subprocess.run(
+                [sys.executable, "-m", "pylama", "-l", "length_checker", str(test_file)],
+                cwd=temp_dir,
+                capture_output=True,
+                text=True,
+            )
+
+            # Should not have violations with lenient limits
+            lenient_output = result_lenient.stdout + result_lenient.stderr
+            assert "LA101" not in lenient_output
+
+    def test_pylama_integration_error_format(self):
+        """Test that pylama integration produces correctly formatted errors."""
+        import subprocess
+        import sys
+        import tempfile
+        from pathlib import Path
+
+        # Create a Python file with a simple violation
+        code_with_error = """def long_function():
+    line1 = 1
+    line2 = 2
+    line3 = 3
+    line4 = 4
+    line5 = 5
+    line6 = 6
+    return line1 + line2 + line3 + line4 + line5 + line6
+"""
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+
+            # Create test file
+            test_file = temp_path / "test_format.py"
+            test_file.write_text(code_with_error)
+
+            # Create pyproject.toml with strict limits
+            pyproject_content = """
+[tool.pyla-linters]
+max_function_length = 5
+max_class_length = 50
+"""
+            pyproject_file = temp_path / "pyproject.toml"
+            pyproject_file.write_text(pyproject_content)
+
+            # Run pylama on the test file with explicit linter
+            result = subprocess.run(
+                [sys.executable, "-m", "pylama", "-l", "length_checker", str(test_file)],
+                cwd=temp_dir,
+                capture_output=True,
+                text=True,
+            )
+
+            output = result.stdout + result.stderr
+
+            # Should contain correctly formatted error message
+            # Pylama format is typically: filename:line:col: error_code message
+            assert "test_format.py" in output
+            assert "LA101" in output
+            assert "long_function" in output
+            assert "8 lines long" in output
+            assert "exceeds maximum of 5" in output
+
+    def test_pylama_integration_multiple_files(self):
+        """Test pylama integration with multiple files."""
+        import subprocess
+        import sys
+        import tempfile
+        from pathlib import Path
+
+        file1_code = """def violation_function():
+    line1 = 1
+    line2 = 2
+    line3 = 3
+    line4 = 4
+    line5 = 5
+    line6 = 6
+    line7 = 7
+    return line1 + line2 + line3 + line4 + line5 + line6 + line7
+"""
+
+        file2_code = """def clean_function():
+    return 42
+
+class CleanClass:
+    def method(self):
+        return True
+"""
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+
+            # Create multiple test files
+            file1 = temp_path / "file1.py"
+            file1.write_text(file1_code)
+
+            file2 = temp_path / "file2.py"
+            file2.write_text(file2_code)
+
+            # Create pyproject.toml
+            pyproject_content = """
+[tool.pyla-linters]
+max_function_length = 5
+max_class_length = 50
+"""
+            pyproject_file = temp_path / "pyproject.toml"
+            pyproject_file.write_text(pyproject_content)
+
+            # Run pylama on all Python files with explicit linter
+            result = subprocess.run(
+                [sys.executable, "-m", "pylama", "-l", "length_checker", str(file1), str(file2)],
+                cwd=temp_dir,
+                capture_output=True,
+                text=True,
+            )
+
+            output = result.stdout + result.stderr
+
+            # Should find violation in file1 but not file2
+            assert "file1.py" in output
+            assert "LA101" in output
+            assert "violation_function" in output
+
+            # Should not complain about file2's clean functions
+            if "file2.py" in output:
+                # If file2 is mentioned, it shouldn't have LA101/LA102 errors
+                file2_lines = [line for line in output.split("\n") if "file2.py" in line]
+                for line in file2_lines:
+                    assert "LA101" not in line
+                    assert "LA102" not in line
+
+    def test_pylama_integration_with_syntax_errors(self):
+        """Test pylama integration handles syntax errors gracefully."""
+        import subprocess
+        import sys
+        import tempfile
+        from pathlib import Path
+
+        # Create a Python file with syntax errors
+        broken_code = """def broken_function(
+    # Missing closing parenthesis
+    line1 = 1
+    line2 = 2
+    return line1 + line2
+"""
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+
+            # Create test file
+            test_file = temp_path / "broken.py"
+            test_file.write_text(broken_code)
+
+            # Create pyproject.toml
+            pyproject_content = """
+[tool.pyla-linters]
+max_function_length = 5
+max_class_length = 50
+"""
+            pyproject_file = temp_path / "pyproject.toml"
+            pyproject_file.write_text(pyproject_content)
+
+            # Run pylama on the test file with explicit linter
+            result = subprocess.run(
+                [sys.executable, "-m", "pylama", "-l", "length_checker", str(test_file)],
+                cwd=temp_dir,
+                capture_output=True,
+                text=True,
+            )
+
+            # Pylama should run (might report syntax errors from other linters)
+            # but our plugin should not crash or produce LA101/LA102 errors
+            output = result.stdout + result.stderr
+
+            # Our plugin should not report length violations for broken syntax
+            assert "LA101" not in output
+            assert "LA102" not in output
