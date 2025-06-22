@@ -1,7 +1,7 @@
 {
     "python.formatting.provider": "none",
     "python.analysis.extraPaths": [
-        "${workspaceFolder}/app/app/"
+        "${workspaceFolder}/src/"
     ],
     "[python]": {
         "editor.defaultFormatter": "ms-python.black-formatter"

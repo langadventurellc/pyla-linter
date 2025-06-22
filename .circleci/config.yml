@@ -13,10 +13,10 @@ parameters:
 jobs:
   deploy:
     docker:
-      - image: us-west1-docker.pkg.dev/langadventure-shared-common/langadventure-docker/gcp-poetry:latest
+      - image: ${GITHUB_DOCKER_HOST}/${GITHUB_DOCKER_NAMESPACE}/docker-gcp-poetry:3.12.1
         auth:
-          username: _json_key
-          password: $GOOGLE_CREDENTIALS_JSON
+          username: $GITHUB_READ_PACKAGES_USER
+          password: $GITHUB_READ_PACKAGES_TOKEN
     parameters:
       package_name:
         type: string

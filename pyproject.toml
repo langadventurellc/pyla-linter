@@ -26,6 +26,16 @@ name = "gcp-pub"
 url = "https://us-west1-python.pkg.dev/langadventure-shared-common/langadventure-python/"
 priority = "supplemental"
 
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.pytest.ini_options]
+pythonpath = "src"
+filterwarnings = "ignore::DeprecationWarning"
+addopts = "--ignore=temp"
+testpaths = ["src/tests"]
+
 [tool.isort]
 multi_line_output = 3
 include_trailing_comma = true
@@ -38,12 +48,13 @@ src_paths = ["src"]
 [tool.black]
 line-length = 100
 
+[tool.pyright]
+include = ["src"]
+exclude = ["bin", "temp", ".venv"]
+
 [tool.poe.tasks]
 black = "black ."
 isort = "isort ."
 lint = "pylama"
+format = ["black", "isort"]
 autolint = ["black", "isort", "lint"]
-
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
