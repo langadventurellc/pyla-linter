@@ -116,17 +116,17 @@ sequenceDiagram
 
   - `src/linters/length_checker/plugin.py` - Updated `_check_element_violations` method to implement two-tier threshold system (warnings at 1x threshold, errors at 2x threshold). Added new warning message creation methods `_create_function_warning` and `_create_class_warning` for WL001/WL002 codes. Updated existing error message methods to reference 2x threshold and include "recommend refactoring" text.
 
-- [ ] 2.0 Update Message Generation Methods
+- [x] 2.0 Update Message Generation Methods
 
-  - [ ] 2.1 Update `_create_function_violation` method to use new message format with threshold type
-  - [ ] 2.2 Update `_create_class_violation` method to use new message format with threshold type
-  - [ ] 2.3 Add new `_create_function_warning` method for WL001 warning generation
-  - [ ] 2.4 Add new `_create_class_warning` method for WL002 warning generation
-  - [ ] 2.5 Ensure all messages include "recommend refactoring" as specified in requirements
+  - [x] 2.1 Update `_create_function_violation` method to use new message format with threshold type
+  - [x] 2.2 Update `_create_class_violation` method to use new message format with threshold type
+  - [x] 2.3 Update `_create_function_warning` method to use new message format with threshold type
+  - [x] 2.4 Update `_create_class_warning` method to use new message format with threshold type
+  - [x] 2.5 Ensure all messages include "recommend refactoring" as specified in requirements
 
   ### Files modified with description of changes
 
-  - (to be filled in after task completion)
+  - `src/linters/length_checker/plugin.py` - Updated all four message generation methods to use proper threshold terminology. Error methods now use "error threshold of X*2" and warning methods use "warning threshold of X". All messages include "recommend refactoring" text as required. Message format now follows specification: "[CODE] [Type] 'name' is X lines long, exceeds [warning/error] threshold of Y, recommend refactoring"
 
 - [ ] 3.0 Add Comprehensive Test Coverage
 

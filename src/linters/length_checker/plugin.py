@@ -131,7 +131,7 @@ class LengthCheckerPlugin:
         """Create a class length error tuple for flake8."""
         message = (
             f"EL002 Class '{element.name}' is {effective_lines} lines long, "
-            f"exceeds maximum of {self.config.max_class_length * 2}, recommend refactoring"
+            f"exceeds error threshold of {self.config.max_class_length * 2}, recommend refactoring"
         )
         return (element.start_line, 0, message, "EL002")
 
@@ -141,7 +141,8 @@ class LengthCheckerPlugin:
         """Create a function length error tuple for flake8."""
         message = (
             f"EL001 Function '{element.name}' is {effective_lines} lines long, "
-            f"exceeds maximum of {self.config.max_function_length * 2}, recommend refactoring"
+            f"exceeds error threshold of {self.config.max_function_length * 2}, "
+            f"recommend refactoring"
         )
         return (element.start_line, 0, message, "EL001")
 
@@ -149,7 +150,7 @@ class LengthCheckerPlugin:
         """Create a class length warning tuple for flake8."""
         message = (
             f"WL002 Class '{element.name}' is {effective_lines} lines long, "
-            f"exceeds maximum of {self.config.max_class_length}, recommend refactoring"
+            f"exceeds warning threshold of {self.config.max_class_length}, recommend refactoring"
         )
         return (element.start_line, 0, message, "WL002")
 
@@ -157,6 +158,6 @@ class LengthCheckerPlugin:
         """Create a function length warning tuple for flake8."""
         message = (
             f"WL001 Function '{element.name}' is {effective_lines} lines long, "
-            f"exceeds maximum of {self.config.max_function_length}, recommend refactoring"
+            f"exceeds warning threshold of {self.config.max_function_length}, recommend refactoring"
         )
         return (element.start_line, 0, message, "WL001")
