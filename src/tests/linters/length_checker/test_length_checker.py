@@ -349,10 +349,9 @@ class ShortClass:
         config = LengthCheckerConfig(max_function_length=4, max_class_length=50)
 
         errors = run_plugin_on_code(code, config)
-        # Both functions should violate (outer: 8 lines, inner: 6 lines > 4 limit)
-        assert len(errors) == 2
+        # Only inner function should violate (outer: 2 statements, inner: 6 statements > 4 limit)
+        assert len(errors) == 1
         error_messages = [error[2] for error in errors]  # error[2] is the message
-        assert any("outer_function" in msg for msg in error_messages)
         assert any("inner_function" in msg for msg in error_messages)
 
 
@@ -381,7 +380,7 @@ class TestErrorReporting:
         assert error_type == "EL001"
         assert message.startswith("EL001")
         assert "long_function" in message
-        assert "8 lines long" in message
+        assert "8 statements long" in message
         assert "exceeds error threshold of 6" in message
 
     def test_error_message_format_class(self):
@@ -411,7 +410,7 @@ class TestErrorReporting:
         assert error_type == "EL002"
         assert message.startswith("EL002")
         assert "LongClass" in message
-        assert "13 lines long" in message
+        assert "13 statements long" in message
         assert "exceeds error threshold of 10" in message
 
     def test_error_codes_are_unique(self):
@@ -507,7 +506,7 @@ class SecondClass:
         assert len(errors) == 1
         line, col, message, error_type = errors[0]
         assert error_type == "WL001"  # Should be warning
-        assert "5 lines long, exceeds warning threshold of 4" in message
+        assert "5 statements long, exceeds warning threshold of 4" in message
 
     def test_multiple_error_ordering(self):
         """Test that multiple errors are reported in source code order."""
@@ -552,7 +551,7 @@ def second_function():
         assert len(errors) == 1
 
         line, col, message, error_type = errors[0]
-        assert "8 lines long" in message  # Actual length
+        assert "8 statements long" in message  # Actual length
         assert "exceeds warning threshold of 5" in message  # Configured limit
 
     def test_error_reporting_with_file_reading(self):
@@ -734,7 +733,7 @@ class DecoratedClass:
         errors = run_plugin_on_code(code, config)
         assert len(errors) == 1
         _, _, message, _ = errors[0]
-        assert "2 lines long" in message
+        assert "2 statements long" in message
 
     def test_function_with_only_ellipsis(self):
         """Test function with only ellipsis (...)."""
@@ -746,7 +745,7 @@ class DecoratedClass:
         errors = run_plugin_on_code(code, config)
         assert len(errors) == 1
         line, col, message, error_type = errors[0]
-        assert "2 lines long" in message
+        assert "2 statements long" in message
 
     def test_class_with_class_variables(self):
         """Test class with only class variables."""
@@ -1669,7 +1668,7 @@ build-backend = "poetry.core.masonry.api"
             assert "test_format.py" in output
             assert "WL001" in output
             assert "long_function" in output
-            assert "8 lines long" in output
+            assert "8 statements long" in output
             assert "exceeds warning threshold of 5" in output
 
     def test_flake8_integration_multiple_files(self):  # noqa: WL001
@@ -1871,7 +1870,7 @@ class TestWarningGeneration:
         assert violation_type == "WL001"
         assert message.startswith("WL001")
         assert "test_function" in message
-        assert "6 lines long" in message
+        assert "6 statements long" in message
         assert "exceeds warning threshold of 4" in message
         assert "recommend refactoring" in message
 
@@ -1896,7 +1895,7 @@ class TestWarningGeneration:
         assert violation_type == "WL002"
         assert message.startswith("WL002")
         assert "TestClass" in message
-        assert "7 lines long" in message
+        assert "7 statements long" in message
         assert "exceeds warning threshold of 5" in message
         assert "recommend refactoring" in message
 
@@ -2047,7 +2046,7 @@ class TestErrorGeneration:
         assert violation_type == "EL001"
         assert message.startswith("EL001")
         assert "test_function" in message
-        assert "11 lines long" in message
+        assert "11 statements long" in message
         assert "exceeds error threshold of 8" in message  # 2x threshold
         assert "recommend refactoring" in message
 
@@ -2088,7 +2087,7 @@ class TestErrorGeneration:
         assert violation_type == "EL002"
         assert message.startswith("EL002")
         assert "TestClass" in message
-        assert "23 lines long" in message
+        assert "23 statements long" in message
         assert "exceeds error threshold of 10" in message  # 2x threshold
         assert "recommend refactoring" in message
 
@@ -2526,7 +2525,7 @@ class ErrorClass:
 
         for line, col, message, violation_type in violations:
             # All messages should contain these elements
-            assert "lines long" in message
+            assert "statements long" in message
             assert "threshold" in message
             assert "recommend refactoring" in message
 

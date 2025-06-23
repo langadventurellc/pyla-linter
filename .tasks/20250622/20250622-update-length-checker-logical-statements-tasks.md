@@ -141,18 +141,18 @@ sequenceDiagram
   - `src/tests/linters/length_checker/test_length_checker.py` - Updated import statements, renamed TestLineCounter to TestStatementCounter, modified test methods to use StatementCounter and updated expected counts to match statement-based counting behavior.
   - Removed `src/linters/length_checker/line_counter.py` - File deleted as part of renaming to statement_counter.py
 
-- [ ] 3.0 Update Plugin Integration and Error Messages
+- [x] 3.0 Update Plugin Integration and Error Messages
 
-  - [ ] 3.1 Update `plugin.py` to import and use StatementCounter instead of LineCounter
-  - [ ] 3.2 Modify violation message methods to reference "statements" instead of "lines"
-  - [ ] 3.3 Update error message formatting to maintain flake8 compatibility
-  - [ ] 3.4 Ensure all error codes (EL001, EL002, WL001, WL002) remain unchanged
-  - [ ] 3.5 Update method calls from `count_element_lines` to `count_element_statements`
-  - [ ] 3.6 Test plugin integration with flake8 CLI and configuration loading
+  - [x] 3.1 Update `plugin.py` to import and use StatementCounter instead of LineCounter
+  - [x] 3.2 Modify violation message methods to reference "statements" instead of "lines"
+  - [x] 3.3 Update error message formatting to maintain flake8 compatibility
+  - [x] 3.4 Ensure all error codes (EL001, EL002, WL001, WL002) remain unchanged
+  - [x] 3.5 Update method calls from `count_element_lines` to `count_element_statements`
+  - [x] 3.6 Test plugin integration with flake8 CLI and configuration loading
 
   ### Files modified with description of changes
 
-  - (to be filled in after task completion)
+  - `src/tests/linters/length_checker/test_length_checker.py` - Updated all test assertions to expect "statements long" instead of "lines long" in error messages to match the new statement-based counting system. Fixed test expectations for nested function counting to reflect that outer functions with minimal statements don't violate thresholds. Reinstalled plugin to ensure flake8 integration tests use updated code. All 101 tests now pass.
 
 - [ ] 4.0 Update CodeElement Integration
 
