@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-This is a set of Python linting tools to be used by Pylama.
+This is a set of Python linting tools to be used by flake8.
 
 Use context7 MCP to access up-to-date documentation for third-party libraries.
 
@@ -18,7 +18,7 @@ poetry install
 
 # Code formatting and linting
 poetry run poe format    # Runs black and isort
-poetry run poe autolint  # Runs black, isort, and pylama
+poetry run poe autolint  # Runs black, isort, and flake8
 poetry run poe lint      # Run linting only
 poetry run pyright       # Run type checking with Pyright
 
@@ -97,7 +97,7 @@ Use Pyright for type checking. Ensure all code is type-annotated and passes type
 **Always run these tools before completing a task:**
 - **Black**: Code formatting
 - **isort**: Import sorting
-- **Pylama**: Linting
+- **flake8**: Linting
 - **Pyright**: Type checking
 - **Pytest**: Testing
 
