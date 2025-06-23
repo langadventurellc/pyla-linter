@@ -6,8 +6,8 @@ from typing import List, Tuple
 from src.linters.length_checker.ast_visitor import ASTVisitor
 from src.linters.length_checker.code_element import CodeElement
 from src.linters.length_checker.config import LengthCheckerConfig
-from src.linters.length_checker.line_counter import LineCounter
 from src.linters.length_checker.plugin import LengthCheckerPlugin
+from src.linters.length_checker.statement_counter import StatementCounter
 
 
 def run_plugin_on_code(
@@ -120,27 +120,27 @@ class TestASTVisitor:
         assert elements[0].node_type == "function"
 
 
-class TestLineCounter:
-    """Test the line counting functionality."""
+class TestStatementCounter:
+    """Test the statement counting functionality."""
 
-    def test_simple_line_counting(self):
-        """Test basic line counting without comments or docstrings."""
+    def test_simple_statement_counting(self):
+        """Test basic statement counting without comments or docstrings."""
         code = """def simple_function():
     x = 1
     y = 2
     return x + y"""
 
         lines = code.splitlines()
-        counter = LineCounter(lines)
+        counter = StatementCounter(lines)
 
         element = CodeElement("simple_function", "function", 1, 4)
-        actual_lines = counter.count_element_lines(element, code)
+        actual_statements = counter.count_element_statements(element, code)
 
-        # Should count all 4 lines as they're all code
-        assert actual_lines == 4
+        # Should count 4 statements: def, x=1, y=2, return
+        assert actual_statements == 4
 
-    def test_line_counting_with_comments(self):
-        """Test line counting excluding comment lines."""
+    def test_statement_counting_with_comments(self):
+        """Test statement counting excluding comment lines."""
         code = """def function_with_comments():
     # This is a comment
     x = 1  # inline comment but line has code
@@ -148,16 +148,16 @@ class TestLineCounter:
     return x"""
 
         lines = code.splitlines()
-        counter = LineCounter(lines)
+        counter = StatementCounter(lines)
 
         element = CodeElement("function_with_comments", "function", 1, 5)
-        actual_lines = counter.count_element_lines(element, code)
+        actual_statements = counter.count_element_statements(element, code)
 
-        # Should count 3 lines (function def, x=1 line, return) - excluding comment-only lines
-        assert actual_lines == 3
+        # Should count 3 statements (function def, x=1, return) - comments don't count as statements
+        assert actual_statements == 3
 
-    def test_line_counting_with_docstring(self):
-        """Test line counting excluding docstring lines."""
+    def test_statement_counting_with_docstring(self):
+        """Test statement counting excluding docstring lines."""
         code = '''def function_with_docstring():
     """This is a docstring.
 
@@ -167,16 +167,17 @@ class TestLineCounter:
     return x'''
 
         lines = code.splitlines()
-        counter = LineCounter(lines)
+        counter = StatementCounter(lines)
 
         element = CodeElement("function_with_docstring", "function", 1, 7)
-        actual_lines = counter.count_element_lines(element, code)
+        actual_statements = counter.count_element_statements(element, code)
 
-        # Should count 3 lines (function def, x=1, return) - excluding docstring
-        assert actual_lines == 3
+        # Should count 4 statements (function def, docstring expr, x=1, return)
+        # docstring is still a statement
+        assert actual_statements == 4
 
-    def test_line_counting_with_empty_lines(self):
-        """Test line counting excluding empty lines."""
+    def test_statement_counting_with_empty_lines(self):
+        """Test statement counting excluding empty lines."""
         code = """def function_with_empty_lines():
 
     x = 1
@@ -186,16 +187,17 @@ class TestLineCounter:
     return x + y"""
 
         lines = code.splitlines()
-        counter = LineCounter(lines)
+        counter = StatementCounter(lines)
 
-        element = CodeElement("function_with_empty_lines", "function", 1, 8)
-        actual_lines = counter.count_element_lines(element, code)
+        element = CodeElement("function_with_empty_lines", "function", 1, 7)
+        actual_statements = counter.count_element_statements(element, code)
 
-        # Should count 4 lines (function def, x=1, y=2, return) - excluding empty lines
-        assert actual_lines == 4
+        # Should count 4 statements (function def, x=1, y=2, return)
+        # empty lines don't affect statement count
+        assert actual_statements == 4
 
-    def test_class_line_counting(self):
-        """Test line counting for classes."""
+    def test_class_statement_counting(self):
+        """Test statement counting for classes."""
         code = '''class TestClass:
     """Class docstring."""
 
@@ -208,13 +210,14 @@ class TestLineCounter:
         return self.x'''
 
         lines = code.splitlines()
-        counter = LineCounter(lines)
+        counter = StatementCounter(lines)
 
         element = CodeElement("TestClass", "class", 1, 10)
-        actual_lines = counter.count_element_lines(element, code)
+        actual_statements = counter.count_element_statements(element, code)
 
-        # Should count actual code lines, excluding docstrings, comments, and empty lines
-        assert actual_lines == 5  # class def, __init__ def, self.x=1, method def, return
+        # Should count: class def, docstring expr, __init__ def, self.x=1,
+        # method def, method docstring expr, return
+        assert actual_statements == 7
 
 
 class TestLengthCheckerPlugin:
@@ -346,10 +349,9 @@ class ShortClass:
         config = LengthCheckerConfig(max_function_length=4, max_class_length=50)
 
         errors = run_plugin_on_code(code, config)
-        # Both functions should violate (outer: 8 lines, inner: 6 lines > 4 limit)
-        assert len(errors) == 2
+        # Only inner function should violate (outer: 2 statements, inner: 6 statements > 4 limit)
+        assert len(errors) == 1
         error_messages = [error[2] for error in errors]  # error[2] is the message
-        assert any("outer_function" in msg for msg in error_messages)
         assert any("inner_function" in msg for msg in error_messages)
 
 
@@ -378,7 +380,7 @@ class TestErrorReporting:
         assert error_type == "EL001"
         assert message.startswith("EL001")
         assert "long_function" in message
-        assert "8 lines long" in message
+        assert "8 statements long" in message
         assert "exceeds error threshold of 6" in message
 
     def test_error_message_format_class(self):
@@ -408,7 +410,7 @@ class TestErrorReporting:
         assert error_type == "EL002"
         assert message.startswith("EL002")
         assert "LongClass" in message
-        assert "13 lines long" in message
+        assert "13 statements long" in message
         assert "exceeds error threshold of 10" in message
 
     def test_error_codes_are_unique(self):
@@ -504,7 +506,7 @@ class SecondClass:
         assert len(errors) == 1
         line, col, message, error_type = errors[0]
         assert error_type == "WL001"  # Should be warning
-        assert "5 lines long, exceeds warning threshold of 4" in message
+        assert "5 statements long, exceeds warning threshold of 4" in message
 
     def test_multiple_error_ordering(self):
         """Test that multiple errors are reported in source code order."""
@@ -549,7 +551,7 @@ def second_function():
         assert len(errors) == 1
 
         line, col, message, error_type = errors[0]
-        assert "8 lines long" in message  # Actual length
+        assert "8 statements long" in message  # Actual length
         assert "exceeds warning threshold of 5" in message  # Configured limit
 
     def test_error_reporting_with_file_reading(self):
@@ -731,7 +733,7 @@ class DecoratedClass:
         errors = run_plugin_on_code(code, config)
         assert len(errors) == 1
         _, _, message, _ = errors[0]
-        assert "2 lines long" in message
+        assert "2 statements long" in message
 
     def test_function_with_only_ellipsis(self):
         """Test function with only ellipsis (...)."""
@@ -743,7 +745,7 @@ class DecoratedClass:
         errors = run_plugin_on_code(code, config)
         assert len(errors) == 1
         line, col, message, error_type = errors[0]
-        assert "2 lines long" in message
+        assert "2 statements long" in message
 
     def test_class_with_class_variables(self):
         """Test class with only class variables."""
@@ -1666,7 +1668,7 @@ build-backend = "poetry.core.masonry.api"
             assert "test_format.py" in output
             assert "WL001" in output
             assert "long_function" in output
-            assert "8 lines long" in output
+            assert "8 statements long" in output
             assert "exceeds warning threshold of 5" in output
 
     def test_flake8_integration_multiple_files(self):  # noqa: WL001
@@ -1868,7 +1870,7 @@ class TestWarningGeneration:
         assert violation_type == "WL001"
         assert message.startswith("WL001")
         assert "test_function" in message
-        assert "6 lines long" in message
+        assert "6 statements long" in message
         assert "exceeds warning threshold of 4" in message
         assert "recommend refactoring" in message
 
@@ -1893,7 +1895,7 @@ class TestWarningGeneration:
         assert violation_type == "WL002"
         assert message.startswith("WL002")
         assert "TestClass" in message
-        assert "7 lines long" in message
+        assert "7 statements long" in message
         assert "exceeds warning threshold of 5" in message
         assert "recommend refactoring" in message
 
@@ -2044,7 +2046,7 @@ class TestErrorGeneration:
         assert violation_type == "EL001"
         assert message.startswith("EL001")
         assert "test_function" in message
-        assert "11 lines long" in message
+        assert "11 statements long" in message
         assert "exceeds error threshold of 8" in message  # 2x threshold
         assert "recommend refactoring" in message
 
@@ -2085,7 +2087,7 @@ class TestErrorGeneration:
         assert violation_type == "EL002"
         assert message.startswith("EL002")
         assert "TestClass" in message
-        assert "23 lines long" in message
+        assert "23 statements long" in message
         assert "exceeds error threshold of 10" in message  # 2x threshold
         assert "recommend refactoring" in message
 
@@ -2371,6 +2373,207 @@ def last_function():
         assert line_numbers[2] == 16  # last_function
 
 
+class TestCompoundStatementHandling:
+    """Test comprehensive compound statement handling for if/elif/else, try/except/finally."""
+
+    def test_complex_if_elif_else_chain(self):
+        """Test that complex if/elif/else chains count statements correctly."""
+        code = """def complex_conditional():
+    x = 10
+    if x > 15:
+        result = "high"
+        print(result)
+    elif x > 10:
+        result = "medium"
+        log_value(result)
+    elif x > 5:
+        result = "low"
+        process_value(result)
+    else:
+        result = "zero"
+        handle_zero(result)
+    return result"""
+
+        config = LengthCheckerConfig(max_function_length=8)
+        errors = run_plugin_on_code(code, config)
+        assert len(errors) == 1
+
+        # Should count: def, x=10, if, result="high", print(), result="medium",
+        # log_value(), result="low", process_value(), result="zero", handle_zero(), return
+        # = 14 statements total (actual count)
+        _, _, message, _ = errors[0]
+        assert "14 statements long" in message
+
+    def test_nested_try_except_finally_blocks(self):
+        """Test nested try/except/finally blocks count correctly."""
+        code = """def nested_exception_handling():
+    try:
+        x = get_value()
+        try:
+            result = process(x)
+            validate(result)
+        except ValidationError:
+            result = default_value()
+        finally:
+            log_process()
+    except NetworkError as e:
+        handle_network_error(e)
+        retry_count += 1
+    except Exception:
+        handle_generic_error()
+    finally:
+        cleanup_resources()
+    return result"""
+
+        config = LengthCheckerConfig(max_function_length=10)
+        errors = run_plugin_on_code(code, config)
+        assert len(errors) == 1
+
+        # Should count all executable statements including nested try blocks
+        # = 13 statements total (actual count)
+        _, _, message, _ = errors[0]
+        assert "13 statements long" in message
+
+    def test_match_case_statements(self):
+        """Test Python 3.10+ match/case statements (if supported)."""
+        code = """def match_example(value):
+    match value:
+        case 1:
+            result = "one"
+        case 2 | 3:
+            result = "two or three"
+        case str() if len(value) > 5:
+            result = "long string"
+        case _:
+            result = "default"
+    return result"""
+
+        try:
+            config = LengthCheckerConfig(max_function_length=5)
+            errors = run_plugin_on_code(code, config)
+            # Should handle match/case correctly regardless of Python version
+            if errors:  # If match/case is supported and creates violations
+                _, _, message, _ = errors[0]
+                assert "statements long" in message
+        except SyntaxError:
+            # Match/case not supported in this Python version, skip test
+            pass
+
+    def test_complex_loop_structures(self):
+        """Test complex loop structures with breaks and continues."""
+        code = """def complex_loops():
+    for i in range(10):
+        if i % 2 == 0:
+            continue
+        for j in range(i):
+            if j > 5:
+                break
+            process_pair(i, j)
+
+    while condition():
+        try:
+            value = get_next()
+            if value is None:
+                break
+            process(value)
+        except StopIteration:
+            break
+    return results"""
+
+        config = LengthCheckerConfig(max_function_length=10)
+        errors = run_plugin_on_code(code, config)
+        assert len(errors) == 1
+
+        # Should count all statements including control flow
+        _, _, message, _ = errors[0]
+        assert "statements long" in message
+
+
+class TestMalformedASTEdgeCases:
+    """Test edge cases for malformed AST nodes and syntax errors."""
+
+    def test_incomplete_function_definition(self):
+        """Test handling of incomplete function definitions."""
+        malformed_codes = [
+            "def incomplete_func(",  # Missing closing paren
+            "def func():",  # Missing body
+            "def func(): ...",  # Valid but minimal
+            "def func(a, b,):",  # Trailing comma (valid)
+        ]
+
+        for code in malformed_codes:
+            errors = run_plugin_on_code(code)
+            # Should handle gracefully without crashing
+            assert isinstance(errors, list)
+
+    def test_incomplete_class_definition(self):
+        """Test handling of incomplete class definitions."""
+        malformed_codes = [
+            "class IncompleteClass(",  # Missing closing paren
+            "class Class():",  # Missing body
+            "class Class(): ...",  # Valid but minimal
+        ]
+
+        for code in malformed_codes:
+            errors = run_plugin_on_code(code)
+            # Should handle gracefully without crashing
+            assert isinstance(errors, list)
+
+    def test_invalid_indentation_handling(self):
+        """Test handling of invalid indentation."""
+        malformed_codes = [
+            "def func():\n    x = 1\n  y = 2",  # Inconsistent indentation
+            "def func():\nx = 1",  # Missing indentation
+            "def func():\n        x = 1\n    y = 2",  # Mixed indentation levels
+        ]
+
+        for code in malformed_codes:
+            errors = run_plugin_on_code(code)
+            # Should handle gracefully - either parse successfully or return empty
+            assert isinstance(errors, list)
+
+    def test_unicode_and_encoding_edge_cases(self):
+        """Test handling of unicode characters and encoding issues."""
+        unicode_codes = [
+            "def café(): return 'unicode'",  # Unicode in function name
+            "def func(): return 'emoji 🚀'",  # Unicode in string
+            "def func(): # Comment with ñ",  # Unicode in comment
+        ]
+
+        for code in unicode_codes:
+            errors = run_plugin_on_code(code)
+            # Should handle unicode gracefully
+            assert isinstance(errors, list)
+
+    def test_very_long_lines_handling(self):
+        """Test handling of extremely long lines."""
+        # Create a function with a very long line
+        long_string = "'" + "x" * 1000 + "'"
+        code = f"""def long_line_func():
+    very_long_var = {long_string}
+    return very_long_var"""
+
+        errors = run_plugin_on_code(code)
+        # Should handle long lines without issues
+        assert isinstance(errors, list)
+
+    def test_deeply_nested_structures(self):
+        """Test handling of deeply nested code structures."""
+        # Create deeply nested if statements
+        nested_ifs = ""
+        for i in range(20):
+            nested_ifs += "    " * (i + 1) + f"if condition_{i}:\n"
+        nested_ifs += "    " * 21 + "result = 'deep'"
+
+        code = f"""def deeply_nested():
+{nested_ifs}
+    return result"""
+
+        errors = run_plugin_on_code(code)
+        # Should handle deep nesting without stack overflow
+        assert isinstance(errors, list)
+
+
 class TestNewEdgeCases:
     """Test edge cases and boundary conditions for the new warning system."""
 
@@ -2523,7 +2726,7 @@ class ErrorClass:
 
         for line, col, message, violation_type in violations:
             # All messages should contain these elements
-            assert "lines long" in message
+            assert "statements long" in message
             assert "threshold" in message
             assert "recommend refactoring" in message
 
