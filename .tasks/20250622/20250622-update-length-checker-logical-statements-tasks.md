@@ -181,15 +181,27 @@ sequenceDiagram
   - `src/tests/linters/length_checker/test_statement_visitor.py` - Comprehensive test coverage already in place for statement visitor functionality including nested scope isolation and boundary handling.
   - `src/tests/linters/length_checker/test_code_element.py` - Test coverage already updated for CodeElement integration with StatementCounter functionality.
 
-- [ ] 6.0 Final Integration and Validation
+- [x] 6.0 Final Integration and Validation
 
-  - [ ] 6.1 Run complete test suite and ensure all tests pass
-  - [ ] 6.2 Verify flake8 plugin registration works correctly
-  - [ ] 6.3 Test configuration loading from pyproject.toml and command line overrides
-  - [ ] 6.4 Perform integration testing with sample Python files
-  - [ ] 6.5 Validate error message formatting and error codes
-  - [ ] 6.6 Update any remaining documentation or docstrings
+  - [x] 6.1 Run complete test suite and ensure all tests pass
+  - [x] 6.2 Verify flake8 plugin registration works correctly
+  - [x] 6.3 Test configuration loading from pyproject.toml and command line overrides
+  - [x] 6.4 Perform integration testing with sample Python files
+  - [x] 6.5 Validate error message formatting and error codes
+  - [x] 6.6 Update any remaining documentation or docstrings
 
   ### Files modified with description of changes
 
-  - (to be filled in after task completion)
+  - `src/linters/length_checker/plugin.py` - Updated comment from "count lines" to "count statements" for consistency
+  - `src/linters/length_checker/code_element.py` - Enhanced docstrings to clarify total_lines property returns physical line span, not statement count
+  - `src/linters/length_checker/statement_counter.py` - Enhanced fallback method docstring to clarify its purpose
+  - `README.md` - Comprehensive updates to reflect statement-based counting including plugin description, configuration comments, warning codes, completely rewritten "Statement Counting Logic" section, updated examples, and information about two-tier threshold system
+  
+  **Integration Testing Results:**
+  - All 269 tests pass successfully
+  - Plugin properly registered with flake8 (version 1.1.0 detected)
+  - Configuration loading from pyproject.toml works correctly (max_function_length=40, max_class_length=200)
+  - Integration testing with sample files confirms proper statement counting and error generation
+  - Error message formatting verified: filename:line:col: CODE message format maintained
+  - Error codes validated: WL001/WL002 for warnings, EL001/EL002 for errors
+  - All quality checks pass: black, isort, flake8, pyright

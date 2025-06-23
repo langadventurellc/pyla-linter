@@ -77,7 +77,11 @@ class StatementCounter:
         return statement_count
 
     def _fallback_line_count(self, element: CodeElement) -> int:
-        """Fallback method that counts non-empty, non-comment lines."""
+        """Fallback method that counts non-empty, non-comment lines when AST parsing fails.
+
+        Note: This is a simplified approximation used only when proper AST-based
+        statement counting cannot be performed.
+        """
         actual_lines = 0
         for line_num in range(element.start_line, element.end_line + 1):
             if self._is_code_line(line_num):

@@ -76,7 +76,7 @@ class LengthCheckerPlugin:
         visitor = ASTVisitor()
         visitor.visit(self.tree)
 
-        # Get the source code to count lines
+        # Get the source code to count statements
         source_code = self._get_source_code()
         if source_code is None:
             return

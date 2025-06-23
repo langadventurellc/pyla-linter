@@ -30,10 +30,13 @@ class CodeElement:
 
     @property
     def total_lines(self) -> int:
-        """Get the total number of lines spanned by this code element.
+        """Get the total number of physical lines spanned by this code element.
+
+        Note: This returns the physical line span, not the statement count.
+        For statement counting, use get_effective_statements().
 
         Returns:
-            The total line count from start_line to end_line (inclusive)
+            The total physical line count from start_line to end_line (inclusive)
         """
         return self.end_line - self.start_line + 1
 

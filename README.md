@@ -6,7 +6,7 @@ A collection of Python linting tools designed to be used with flake8.
 
 ### Length Checker Plugin
 
-A flake8 plugin that enforces configurable line limits for classes and functions, excluding docstrings and comments from the count.
+A flake8 plugin that enforces configurable statement limits for classes and functions using AST-based analysis, excluding docstrings and comments from the count.
 
 #### Installation
 
@@ -47,10 +47,10 @@ Configure the length checker in your `pyproject.toml` file:
 
 ```toml
 [tool.pyla-linters]
-# Maximum lines for functions (default: 40)
+# Maximum statements for functions (default: 40)
 max_function_length = 40
 
-# Maximum lines for classes (default: 200)
+# Maximum statements for classes (default: 200)
 max_class_length = 200
 ```
 
@@ -67,51 +67,60 @@ flake8 --ignore=EL001  # Ignore function length violations
 
 The length checker uses the following error codes:
 
-- **EL001**: Function exceeds maximum line limit
-- **EL002**: Class exceeds maximum line limit
+- **EL001**: Function exceeds maximum statement limit (error at 2x threshold)
+- **EL002**: Class exceeds maximum statement limit (error at 2x threshold)
+- **WL001**: Function exceeds warning statement threshold
+- **WL002**: Class exceeds warning statement threshold
 
-#### Line Counting Logic
+#### Statement Counting Logic
 
-The plugin counts only actual code lines, excluding:
+The plugin uses AST-based analysis to count logical statements rather than physical lines, providing a more accurate measure of code complexity. It counts executable statements while excluding:
 
+- Docstrings
+- Comments
 - Empty lines
-- Comment lines (starting with `#`)
-- Docstrings (string literals at the beginning of functions/classes)
-- Lines with only whitespace
+- Pure whitespace
 
 For nested structures:
-- Nested functions/classes count toward their parent's line total
-- Decorators are included in the count for the decorated element
+- Nested functions/classes are excluded from their parent's statement count
+- Each code element is evaluated independently
+- Decorators are included in the decorated element's line span but don't count as statements
+
+The plugin implements a two-tier threshold system:
+- **Warning**: Issued when statement count exceeds the configured threshold
+- **Error**: Issued when statement count exceeds 2x the configured threshold
 
 #### Examples
 
 **Function that would trigger EL001:**
 
 ```python
-def long_function():  # Line 1
-    """This is a docstring (not counted)."""
+def long_function():  # Function definition
+    """This is a docstring (not counted as a statement)."""
     
     # This is a comment (not counted)
     
-    x = 1  # Line 2
-    y = 2  # Line 3
-    # ... more code lines
-    return x + y  # Line 41 (exceeds default limit of 40)
+    x = 1  # Statement 1
+    y = 2  # Statement 2
+    # ... more code statements
+    return x + y  # Statement 41 (exceeds default limit of 40)
 ```
 
 **Class that would trigger EL002:**
 
 ```python
-class LargeClass:  # Line 1
-    """Class docstring (not counted)."""
+class LargeClass:  # Class definition
+    """Class docstring (not counted as a statement)."""
     
-    def method1(self):  # Line 2
-        pass  # Line 3
+    def method1(self):  # Method definitions don't count toward class statements
+        self.value = 1  # Statement 1 (counts toward method, not class)
+        return self.value  # Statement 2 (counts toward method, not class)
     
-    # ... many more methods
+    def __init__(self):  # Init method
+        self.data = []  # Statement 1 of class body
+        # ... many more statements in class body
     
-    def method_N(self):  # Line 201 (exceeds default limit of 200)
-        pass  # Line 202
+    # Class with 201 statements in its direct body (exceeds default limit of 200)
 ```
 
 #### Integration with Existing Workflow
