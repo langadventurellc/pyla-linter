@@ -1,9 +1,41 @@
 """Comprehensive unit tests for the length checker plugin."""
 
+import ast
+from typing import List, Tuple
+
 from src.linters.length_checker.ast_visitor import ASTVisitor, CodeElement
 from src.linters.length_checker.config import LengthCheckerConfig
 from src.linters.length_checker.line_counter import LineCounter
 from src.linters.length_checker.plugin import LengthCheckerPlugin
+
+
+def run_plugin_on_code(
+    code: str, config: LengthCheckerConfig | None = None, _filename: str = "test.py"
+) -> List[Tuple[int, int, str, str]]:
+    """Helper function to run the flake8 plugin on code and return error tuples."""
+    import os
+    import tempfile
+
+    try:
+        tree = ast.parse(code)
+    except SyntaxError:
+        return []  # Return empty list for syntax errors, matching plugin behavior
+
+    # Create a temporary file with the code so the plugin can read it
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
+        f.write(code)
+        temp_filename = f.name
+
+    try:
+        plugin = LengthCheckerPlugin(tree, temp_filename)
+        if config:
+            plugin.set_config(config)
+
+        return list(plugin.run())
+    finally:
+        # Clean up the temporary file
+        if os.path.exists(temp_filename):
+            os.unlink(temp_filename)
 
 
 class TestASTVisitor:
@@ -189,9 +221,10 @@ class TestLengthCheckerPlugin:
 
     def test_plugin_initialization(self):
         """Test plugin initializes correctly."""
-        plugin = LengthCheckerPlugin()
+        tree = ast.parse("def test(): pass")
+        plugin = LengthCheckerPlugin(tree, "test.py")
         assert plugin.name == "length_checker"
-        assert plugin.enable is True
+        assert plugin.version == "1.0.0"
 
     def test_no_violations_under_limit(self):
         """Test that code under limits produces no violations."""
@@ -202,12 +235,10 @@ class ShortClass:
     def method(self):
         return True"""
 
-        plugin = LengthCheckerPlugin()
         # Set high limits to ensure no violations
         config = LengthCheckerConfig(max_function_length=50, max_class_length=50)
-        plugin.set_config(config)
 
-        errors = plugin.run("test.py", code)
+        errors = run_plugin_on_code(code, config)
         assert len(errors) == 0
 
     def test_function_violation_detection(self):
@@ -220,14 +251,14 @@ class ShortClass:
     line5 = 5
     return line1 + line2 + line3 + line4 + line5"""
 
-        plugin = LengthCheckerPlugin()
         config = LengthCheckerConfig(max_function_length=3, max_class_length=50)
-        plugin.set_config(config)
 
-        errors = plugin.run("test.py", code)
+        errors = run_plugin_on_code(code, config)
         assert len(errors) == 1
-        assert "LA101" in errors[0]["text"]
-        assert "long_function" in errors[0]["text"]
+        line, col, message, error_type = errors[0]
+        assert error_type == "EL001"
+        assert "EL001" in message
+        assert "long_function" in message
 
     def test_class_violation_detection(self):
         """Test detection of class length violations."""
@@ -241,14 +272,14 @@ class ShortClass:
     def method3(self):
         return 3"""
 
-        plugin = LengthCheckerPlugin()
         config = LengthCheckerConfig(max_function_length=50, max_class_length=5)
-        plugin.set_config(config)
 
-        errors = plugin.run("test.py", code)
+        errors = run_plugin_on_code(code, config)
         assert len(errors) == 1
-        assert "LA102" in errors[0]["text"]
-        assert "LongClass" in errors[0]["text"]
+        line, col, message, error_type = errors[0]
+        assert error_type == "EL002"
+        assert "EL002" in message
+        assert "LongClass" in message
 
     def test_multiple_violations(self):
         """Test detection of multiple violations."""
@@ -265,11 +296,9 @@ class ShortClass:
         line3 = 3
         return line1 + line2 + line3"""
 
-        plugin = LengthCheckerPlugin()
         config = LengthCheckerConfig(max_function_length=3, max_class_length=8)
-        plugin.set_config(config)
 
-        errors = plugin.run("test.py", code)
+        errors = run_plugin_on_code(code, config)
         # Should have 3 violations: 1 class + 2 functions
         assert len(errors) == 3
 
@@ -279,8 +308,7 @@ class ShortClass:
     # Missing closing parenthesis
     return 42"""
 
-        plugin = LengthCheckerPlugin()
-        errors = plugin.run("test.py", code)
+        errors = run_plugin_on_code(code)
         # Should return empty list, not crash
         assert errors == []
 
@@ -297,11 +325,9 @@ class ShortClass:
     """
     return 42'''
 
-        plugin = LengthCheckerPlugin()
         config = LengthCheckerConfig(max_function_length=3)
-        plugin.set_config(config)
 
-        errors = plugin.run("test.py", code)
+        errors = run_plugin_on_code(code, config)
         # Should have no violations because docstring lines are excluded
         assert len(errors) == 0
 
@@ -316,14 +342,12 @@ class ShortClass:
         return line1 + line2 + line3 + line4
     return inner_function()"""
 
-        plugin = LengthCheckerPlugin()
         config = LengthCheckerConfig(max_function_length=4, max_class_length=50)
-        plugin.set_config(config)
 
-        errors = plugin.run("test.py", code)
+        errors = run_plugin_on_code(code, config)
         # Both functions should violate (outer: 8 lines, inner: 6 lines > 4 limit)
         assert len(errors) == 2
-        error_messages = [error["text"] for error in errors]
+        error_messages = [error[2] for error in errors]  # error[2] is the message
         assert any("outer_function" in msg for msg in error_messages)
         assert any("inner_function" in msg for msg in error_messages)
 
@@ -339,20 +363,19 @@ class TestErrorReporting:
     line3 = 3
     return line1 + line2 + line3"""
 
-        plugin = LengthCheckerPlugin()
         config = LengthCheckerConfig(max_function_length=3)
-        plugin.set_config(config)
 
-        errors = plugin.run("test.py", code)
+        errors = run_plugin_on_code(code, config)
         assert len(errors) == 1
 
-        error = errors[0]
-        assert error["lnum"] == 1  # Error reported on function definition line
-        assert error["col"] == 0  # Column should be 0
-        assert error["text"].startswith("LA101")
-        assert "long_function" in error["text"]
-        assert "5 lines long" in error["text"]
-        assert "exceeds maximum of 3" in error["text"]
+        line, col, message, error_type = errors[0]
+        assert line == 1  # Error reported on function definition line
+        assert col == 0  # Column should be 0
+        assert error_type == "EL001"
+        assert message.startswith("EL001")
+        assert "long_function" in message
+        assert "5 lines long" in message
+        assert "exceeds maximum of 3" in message
 
     def test_error_message_format_class(self):
         """Test that class error messages follow correct format."""
@@ -364,20 +387,19 @@ class TestErrorReporting:
     def method3(self):
         return 3"""
 
-        plugin = LengthCheckerPlugin()
         config = LengthCheckerConfig(max_class_length=5)
-        plugin.set_config(config)
 
-        errors = plugin.run("test.py", code)
+        errors = run_plugin_on_code(code, config)
         assert len(errors) == 1
 
-        error = errors[0]
-        assert error["lnum"] == 1  # Error reported on class definition line
-        assert error["col"] == 0  # Column should be 0
-        assert error["text"].startswith("LA102")
-        assert "LongClass" in error["text"]
-        assert "7 lines long" in error["text"]
-        assert "exceeds maximum of 5" in error["text"]
+        line, col, message, error_type = errors[0]
+        assert line == 1  # Error reported on class definition line
+        assert col == 0  # Column should be 0
+        assert error_type == "EL002"
+        assert message.startswith("EL002")
+        assert "LongClass" in message
+        assert "7 lines long" in message
+        assert "exceeds maximum of 5" in message
 
     def test_error_codes_are_unique(self):
         """Test that class and function violations have different error codes."""
@@ -389,16 +411,14 @@ class TestErrorReporting:
         line4 = 4
         return line1 + line2 + line3 + line4"""
 
-        plugin = LengthCheckerPlugin()
         config = LengthCheckerConfig(max_function_length=3, max_class_length=5)
-        plugin.set_config(config)
 
-        errors = plugin.run("test.py", code)
+        errors = run_plugin_on_code(code, config)
         assert len(errors) == 2
 
-        error_codes = [error["text"][:5] for error in errors]
-        assert "LA102" in error_codes  # Class error
-        assert "LA101" in error_codes  # Function error
+        error_types = [error[3] for error in errors]  # error[3] is the error type
+        assert "EL002" in error_types  # Class error
+        assert "EL001" in error_types  # Function error
 
     def test_error_line_positioning(self):
         """Test that errors are reported on correct line numbers."""
@@ -423,16 +443,14 @@ class SecondClass:
     def method3(self):
         return 3"""
 
-        plugin = LengthCheckerPlugin()
         config = LengthCheckerConfig(max_function_length=2, max_class_length=3)
-        plugin.set_config(config)
 
-        errors = plugin.run("test.py", code)
+        errors = run_plugin_on_code(code, config)
         # Should have violations for first_function, FirstClass, and SecondClass
         assert len(errors) == 3
 
         # Check that line numbers are correct
-        error_lines = [error["lnum"] for error in errors]
+        error_lines = [error[0] for error in errors]  # error[0] is the line number
         assert 3 in error_lines  # FirstClass starts at line 3
         assert 9 in error_lines  # first_function starts at line 9
         assert 14 in error_lines  # SecondClass starts at line 14
@@ -444,11 +462,9 @@ class SecondClass:
     line2 = 2
     return line1 + line2"""
 
-        plugin = LengthCheckerPlugin()
         config = LengthCheckerConfig(max_function_length=4)  # Exactly 4 lines
-        plugin.set_config(config)
 
-        errors = plugin.run("test.py", code)
+        errors = run_plugin_on_code(code, config)
         # Should have no violations when exactly at limit
         assert len(errors) == 0
 
@@ -460,14 +476,13 @@ class SecondClass:
     line3 = 3
     return line1 + line2 + line3"""
 
-        plugin = LengthCheckerPlugin()
         config = LengthCheckerConfig(max_function_length=4)  # 5 lines > 4 limit
-        plugin.set_config(config)
 
-        errors = plugin.run("test.py", code)
+        errors = run_plugin_on_code(code, config)
         # Should have exactly 1 violation
         assert len(errors) == 1
-        assert "5 lines long, exceeds maximum of 4" in errors[0]["text"]
+        line, col, message, error_type = errors[0]
+        assert "5 lines long, exceeds maximum of 4" in message
 
     def test_multiple_error_ordering(self):
         """Test that multiple errors are reported in source code order."""
@@ -483,17 +498,17 @@ def second_function():
     line3 = 3
     return line1 + line2 + line3"""
 
-        plugin = LengthCheckerPlugin()
         config = LengthCheckerConfig(max_function_length=3)
-        plugin.set_config(config)
 
-        errors = plugin.run("test.py", code)
+        errors = run_plugin_on_code(code, config)
         assert len(errors) == 2
 
         # Errors should be in source order
-        assert errors[0]["lnum"] < errors[1]["lnum"]  # First error line < second error line
-        assert "first_function" in errors[0]["text"]
-        assert "second_function" in errors[1]["text"]
+        line1, col1, message1, error_type1 = errors[0]
+        line2, col2, message2, error_type2 = errors[1]
+        assert line1 < line2  # First error line < second error line
+        assert "first_function" in message1
+        assert "second_function" in message2
 
     def test_error_message_includes_actual_and_max_lengths(self):
         """Test that error messages include both actual and maximum lengths."""
@@ -506,14 +521,12 @@ def second_function():
     line6 = 6
     return line1 + line2 + line3 + line4 + line5 + line6"""
 
-        plugin = LengthCheckerPlugin()
         config = LengthCheckerConfig(max_function_length=5)
-        plugin.set_config(config)
 
-        errors = plugin.run("test.py", code)
+        errors = run_plugin_on_code(code, config)
         assert len(errors) == 1
 
-        message = errors[0]["text"]
+        line, col, message, error_type = errors[0]
         assert "8 lines long" in message  # Actual length
         assert "exceeds maximum of 5" in message  # Configured limit
 
@@ -533,36 +546,36 @@ def second_function():
             temp_path = f.name
 
         try:
-            plugin = LengthCheckerPlugin()
+            tree = ast.parse(code)
+            plugin = LengthCheckerPlugin(tree, temp_path)
             config = LengthCheckerConfig(max_function_length=3)
             plugin.set_config(config)
 
-            # Test with code=None to force file reading
-            errors = plugin.run(temp_path, code=None)
+            # Test with the real file path for filename
+            errors = list(plugin.run())
             assert len(errors) == 1
-            assert "LA101" in errors[0]["text"]
-            assert "file_function" in errors[0]["text"]
+            line, col, message, error_type = errors[0]
+            assert "EL001" in message
+            assert "file_function" in message
         finally:
             os.unlink(temp_path)
 
     def test_error_reporting_resilience_to_invalid_files(self):
         """Test that error reporting handles invalid files gracefully."""
-        plugin = LengthCheckerPlugin()
-
-        # Test with non-existent file
-        errors = plugin.run("/nonexistent/file.py", code=None)
-        assert errors == []
+        # Test with non-existent file - plugin constructor will receive parsed AST
+        # so this doesn't apply directly
+        # but we test with broken syntax code
 
         # Test with invalid code that would cause processing errors
         invalid_code = """def broken_function(
     # This is broken syntax
     return 42"""
 
-        errors = plugin.run("test.py", invalid_code)
+        errors = run_plugin_on_code(invalid_code)
         assert errors == []  # Should handle gracefully, not crash
 
 
-class TestEdgeCases:
+class TestEdgeCases:  # noqa: EL002
     """Test edge cases and corner scenarios."""
 
     def test_lambda_functions_not_counted(self):
@@ -587,11 +600,9 @@ class TestEdgeCases:
         code = """class EmptyClass:
     pass"""
 
-        plugin = LengthCheckerPlugin()
         config = LengthCheckerConfig(max_class_length=1)
-        plugin.set_config(config)
 
-        errors = plugin.run("test.py", code)
+        errors = run_plugin_on_code(code, config)
         # Should have 1 violation (2 lines > 1 limit)
         assert len(errors) == 1
 
@@ -600,11 +611,9 @@ class TestEdgeCases:
         code = """def empty_function():
     pass"""
 
-        plugin = LengthCheckerPlugin()
         config = LengthCheckerConfig(max_function_length=1)
-        plugin.set_config(config)
 
-        errors = plugin.run("test.py", code)
+        errors = run_plugin_on_code(code, config)
         # Should have 1 violation (2 lines > 1 limit)
         assert len(errors) == 1
 
@@ -695,26 +704,24 @@ class DecoratedClass:
         code = """class EmptyClass:
     pass"""
 
-        plugin = LengthCheckerPlugin()
         config = LengthCheckerConfig(max_class_length=1)
-        plugin.set_config(config)
 
-        errors = plugin.run("test.py", code)
+        errors = run_plugin_on_code(code, config)
         assert len(errors) == 1
-        assert "2 lines long" in errors[0]["text"]
+        _, _, message, _ = errors[0]
+        assert "2 lines long" in message
 
     def test_function_with_only_ellipsis(self):
         """Test function with only ellipsis (...)."""
         code = """def placeholder_function():
     ..."""
 
-        plugin = LengthCheckerPlugin()
         config = LengthCheckerConfig(max_function_length=1)
-        plugin.set_config(config)
 
-        errors = plugin.run("test.py", code)
+        errors = run_plugin_on_code(code, config)
         assert len(errors) == 1
-        assert "2 lines long" in errors[0]["text"]
+        line, col, message, error_type = errors[0]
+        assert "2 lines long" in message
 
     def test_class_with_class_variables(self):
         """Test class with only class variables."""
@@ -723,11 +730,9 @@ class DecoratedClass:
     CONSTANT2 = "value2"
     CONSTANT3 = "value3\""""
 
-        plugin = LengthCheckerPlugin()
         config = LengthCheckerConfig(max_class_length=3)
-        plugin.set_config(config)
 
-        errors = plugin.run("test.py", code)
+        errors = run_plugin_on_code(code, config)
         assert len(errors) == 1  # 4 lines > 3 limit
 
     def test_generator_function(self):
@@ -843,11 +848,9 @@ class UsingMeta(metaclass=MetaClass):
         cleanup()
     return True"""
 
-        plugin = LengthCheckerPlugin()
         config = LengthCheckerConfig(max_function_length=5)
-        plugin.set_config(config)
 
-        errors = plugin.run("test.py", code)
+        errors = run_plugin_on_code(code, config)
         assert len(errors) == 1  # Function should exceed 5 lines
 
     def test_context_manager_function(self):
@@ -1050,7 +1053,8 @@ max_function_length = 35
 
     def test_plugin_config_loading_behavior(self):
         """Test that plugin loads configuration correctly."""
-        plugin = LengthCheckerPlugin()
+        tree = ast.parse("def test(): pass")
+        plugin = LengthCheckerPlugin(tree, "test.py")
 
         # Initially should use default config
         assert plugin.config.max_function_length == LengthCheckerConfig.DEFAULT_FUNCTION_LENGTH
@@ -1058,7 +1062,8 @@ max_function_length = 35
 
     def test_plugin_manual_config_override(self):
         """Test that manual configuration overrides file-based config."""
-        plugin = LengthCheckerPlugin()
+        tree = ast.parse("def test(): pass")
+        plugin = LengthCheckerPlugin(tree, "test.py")
 
         # Set manual config
         custom_config = LengthCheckerConfig(max_function_length=15, max_class_length=75)
@@ -1071,7 +1076,8 @@ max_function_length = 35
 
     def test_plugin_config_loading_only_once(self):
         """Test that configuration is only loaded once from file."""
-        plugin = LengthCheckerPlugin()
+        tree = ast.parse("def test(): pass")
+        plugin = LengthCheckerPlugin(tree, "test.py")
 
         # First call should load config
         assert plugin._config_loaded is False
@@ -1138,15 +1144,13 @@ class TestFileExclusionPatterns:
         code = """def test_function():
     return 42"""
 
-        plugin = LengthCheckerPlugin()
         config = LengthCheckerConfig(max_function_length=1)
-        plugin.set_config(config)
 
         # Plugin should process any file path provided to it
-        errors1 = plugin.run("regular_file.py", code)
-        errors2 = plugin.run("test_file.py", code)
-        errors3 = plugin.run("__pycache__/cached.py", code)
-        errors4 = plugin.run("venv/lib/python3.11/site-packages/module.py", code)
+        errors1 = run_plugin_on_code(code, config, "regular_file.py")
+        errors2 = run_plugin_on_code(code, config, "test_file.py")
+        errors3 = run_plugin_on_code(code, config, "__pycache__/cached.py")
+        errors4 = run_plugin_on_code(code, config, "venv/lib/python3.11/site-packages/module.py")
 
         # All should produce violations (all have functions > 1 line)
         assert len(errors1) == 1
@@ -1159,14 +1163,12 @@ class TestFileExclusionPatterns:
         code = """def test_function():
     return 42"""
 
-        plugin = LengthCheckerPlugin()
         config = LengthCheckerConfig(max_function_length=1)
-        plugin.set_config(config)
 
         # Plugin should process files regardless of extension
-        errors_py = plugin.run("test.py", code)
-        errors_pyx = plugin.run("test.pyx", code)
-        errors_no_ext = plugin.run("test", code)
+        errors_py = run_plugin_on_code(code, config, "test.py")
+        errors_pyx = run_plugin_on_code(code, config, "test.pyx")
+        errors_no_ext = run_plugin_on_code(code, config, "test")
 
         # All should produce violations
         assert len(errors_py) == 1
@@ -1178,9 +1180,7 @@ class TestFileExclusionPatterns:
         code = """def test_function():
     return 42"""
 
-        plugin = LengthCheckerPlugin()
         config = LengthCheckerConfig(max_function_length=1)
-        plugin.set_config(config)
 
         # Plugin should process files in any directory
         paths_to_test = [
@@ -1195,28 +1195,28 @@ class TestFileExclusionPatterns:
         ]
 
         for path in paths_to_test:
-            errors = plugin.run(path, code)
+            errors = run_plugin_on_code(code, config, path)
             assert len(errors) == 1, f"Expected violation for path: {path}"
 
-    def test_exclusion_would_be_handled_by_pylama_not_plugin(self):
-        """Test that file exclusion is expected to be handled by pylama, not the plugin."""
-        # This test documents the current architecture where pylama handles
+    def test_exclusion_would_be_handled_by_flake8_not_plugin(self):
+        """Test that file exclusion is expected to be handled by flake8, not the plugin."""
+        # This test documents the current architecture where flake8 handles
         # file filtering and the plugin processes whatever files are passed to it
 
-        plugin = LengthCheckerPlugin()
+        tree = ast.parse("def test(): pass")
+        plugin = LengthCheckerPlugin(tree, "test.py")
 
         # The plugin's run method signature shows it expects to receive
-        # individual files that pylama has already filtered
+        # individual files that flake8 has already filtered
         import inspect
 
         signature = inspect.signature(plugin.run)
 
-        # Plugin receives path and code, not directory patterns
-        assert "path" in signature.parameters
-        assert "code" in signature.parameters
-        # Plugin doesn't receive exclude patterns
-        assert "exclude_patterns" not in signature.parameters
-        assert "include_patterns" not in signature.parameters
+        # Plugin run method takes no parameters (gets data from constructor)
+        params = list(signature.parameters.keys())
+        # Plugin doesn't receive exclude patterns in run method
+        assert "exclude_patterns" not in params
+        assert "include_patterns" not in params
 
     def test_current_config_from_toml_ignores_exclusion_patterns(self):
         """Test that TOML config loading ignores exclusion pattern settings."""
@@ -1282,47 +1282,41 @@ include_patterns = ["src/**/*.py"]
 
     def test_plugin_run_params_could_support_exclusion_metadata(self):
         """Test that plugin run method accepts params that could contain exclusion info."""
-        plugin = LengthCheckerPlugin()
+        # Test that the plugin interface doesn't support exclusion patterns directly
+        # This functionality would be handled by flake8 itself
 
-        # The run method accepts params dict and **meta
-        # This could be used for exclusion patterns in the future
         code = "def test(): pass"
 
-        # Current implementation should ignore exclusion-related params
-        exclusion_params = {"exclude_patterns": ["*/test_*"], "include_patterns": ["src/**/*.py"]}
-        exclusion_meta = {"exclude_dirs": ["__pycache__"], "project_root": "/path/to/project"}
-
-        # Should not raise errors and should process the file normally
-        errors = plugin.run("test.py", code, params=exclusion_params, **exclusion_meta)
+        # The plugin doesn't accept exclusion parameters - this is handled by flake8
+        errors = run_plugin_on_code(code)
         assert isinstance(errors, list)  # Should return normal error list
 
+        # Plugin interface is simplified - flake8 handles file filtering
 
-class TestPylamaIntegration:
-    """Test integration with pylama CLI."""
 
-    def test_plugin_is_registered_with_pylama(self):
-        """Test that the plugin is properly registered as a pylama plugin."""
+class TestFlake8Integration:  # noqa: EL002
+    """Test integration with flake8 CLI."""
+
+    def test_plugin_is_registered_with_flake8(self):
+        """Test that the plugin is properly registered as a flake8 plugin."""
         import subprocess
-        import sys
 
-        # Run pylama --help to see if our plugin is listed
+        # Run flake8 --help to see if our plugin is available
         result = subprocess.run(
-            [sys.executable, "-m", "pylama", "--help"], capture_output=True, text=True
+            ["poetry", "run", "flake8", "--help"], capture_output=True, text=True
         )
 
         # Should not error and should complete successfully
         assert result.returncode == 0
 
-    def test_pylama_integration_with_violations(self):
-        """Test full pylama integration with code that has violations."""
+    def test_flake8_integration_with_violations(self):  # noqa: EL001
+        """Test full flake8 integration with code that has violations."""
         import subprocess
-        import sys
         import tempfile
         from pathlib import Path
 
         # Create a Python file with violations
-        code_with_violations = (
-            '''def very_long_function():
+        code_with_violations = '''def very_long_function():
     line1 = 1
     line2 = 2
     line3 = 3
@@ -1389,9 +1383,9 @@ class VeryLongClass:
         return self.attr4
 
     def method5(self):
-        return self.attr5'''
-            + """
-
+        return self.attr5
+''' + (
+            """
     def method6(self):
         return 6
 
@@ -1405,7 +1399,8 @@ class VeryLongClass:
         return 9
 
     def method10(self):
-        return 10"""
+        return 10
+"""
             * 25
         )  # Repeat to make class very long
 
@@ -1418,16 +1413,26 @@ class VeryLongClass:
 
             # Create pyproject.toml with strict limits to ensure violations
             pyproject_content = """
+[tool.poetry]
+name = "test-project"
+version = "0.1.0"
+description = "Test project"
+authors = ["Test <test@example.com>"]
+
 [tool.pyla-linters]
 max_function_length = 40
 max_class_length = 200
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
 """
             pyproject_file = temp_path / "pyproject.toml"
             pyproject_file.write_text(pyproject_content)
 
-            # Run pylama on the test file with explicit linter
+            # Run flake8 on the test file with explicit plugin selection
             result = subprocess.run(
-                [sys.executable, "-m", "pylama", "-l", "length_checker", str(test_file)],
+                ["poetry", "run", "flake8", "--select=EL", str(test_file)],
                 cwd=temp_dir,
                 capture_output=True,
                 text=True,
@@ -1438,15 +1443,14 @@ max_class_length = 200
 
             # Should contain our error codes in output
             output = result.stdout + result.stderr
-            assert "LA101" in output  # Function length violation
-            assert "LA102" in output  # Class length violation
+            assert "EL001" in output  # Function length violation
+            assert "EL002" in output  # Class length violation
             assert "very_long_function" in output
             assert "VeryLongClass" in output
 
-    def test_pylama_integration_without_violations(self):
-        """Test pylama integration with code that has no violations."""
+    def test_flake8_integration_without_violations(self):
+        """Test flake8 integration with code that has no violations."""
         import subprocess
-        import sys
         import tempfile
         from pathlib import Path
 
@@ -1481,25 +1485,24 @@ max_class_length = 200
             pyproject_file = temp_path / "pyproject.toml"
             pyproject_file.write_text(pyproject_content)
 
-            # Run pylama on the test file with explicit linter
+            # Run flake8 on the test file with explicit plugin selection
             result = subprocess.run(
-                [sys.executable, "-m", "pylama", "-l", "length_checker", str(test_file)],
+                ["poetry", "run", "flake8", "--select=EL", str(test_file)],
                 cwd=temp_dir,
                 capture_output=True,
                 text=True,
             )
 
-            # Should not detect violations (though other linters might complain)
+            # Should not detect violations
             output = result.stdout + result.stderr
 
             # Should not contain our error codes
-            assert "LA101" not in output
-            assert "LA102" not in output
+            assert "EL001" not in output
+            assert "EL002" not in output
 
-    def test_pylama_integration_with_custom_config(self):
-        """Test pylama integration with custom configuration."""
+    def test_flake8_integration_with_custom_config(self):  # noqa: EL001
+        """Test flake8 integration with custom configuration."""
         import subprocess
-        import sys
         import tempfile
         from pathlib import Path
 
@@ -1525,15 +1528,25 @@ max_class_length = 200
 
             # Test with strict limits - should have violations
             strict_pyproject = """
+[tool.poetry]
+name = "test-project"
+version = "0.1.0"
+description = "Test project"
+authors = ["Test <test@example.com>"]
+
 [tool.pyla-linters]
 max_function_length = 5
 max_class_length = 50
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
 """
             pyproject_file = temp_path / "pyproject.toml"
             pyproject_file.write_text(strict_pyproject)
 
             result_strict = subprocess.run(
-                [sys.executable, "-m", "pylama", "-l", "length_checker", str(test_file)],
+                ["poetry", "run", "flake8", "--select=EL", str(test_file)],
                 cwd=temp_dir,
                 capture_output=True,
                 text=True,
@@ -1541,18 +1554,28 @@ max_class_length = 50
 
             # Should have violations with strict limits
             strict_output = result_strict.stdout + result_strict.stderr
-            assert "LA101" in strict_output
+            assert "EL001" in strict_output
 
             # Test with lenient limits - should not have violations
             lenient_pyproject = """
+[tool.poetry]
+name = "test-project"
+version = "0.1.0"
+description = "Test project"
+authors = ["Test <test@example.com>"]
+
 [tool.pyla-linters]
 max_function_length = 20
 max_class_length = 200
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
 """
             pyproject_file.write_text(lenient_pyproject)
 
             result_lenient = subprocess.run(
-                [sys.executable, "-m", "pylama", "-l", "length_checker", str(test_file)],
+                ["poetry", "run", "flake8", "--select=EL", str(test_file)],
                 cwd=temp_dir,
                 capture_output=True,
                 text=True,
@@ -1560,12 +1583,11 @@ max_class_length = 200
 
             # Should not have violations with lenient limits
             lenient_output = result_lenient.stdout + result_lenient.stderr
-            assert "LA101" not in lenient_output
+            assert "EL001" not in lenient_output
 
-    def test_pylama_integration_error_format(self):
-        """Test that pylama integration produces correctly formatted errors."""
+    def test_flake8_integration_error_format(self):  # noqa: EL001
+        """Test that flake8 integration produces correctly formatted errors."""
         import subprocess
-        import sys
         import tempfile
         from pathlib import Path
 
@@ -1589,16 +1611,26 @@ max_class_length = 200
 
             # Create pyproject.toml with strict limits
             pyproject_content = """
+[tool.poetry]
+name = "test-project"
+version = "0.1.0"
+description = "Test project"
+authors = ["Test <test@example.com>"]
+
 [tool.pyla-linters]
 max_function_length = 5
 max_class_length = 50
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
 """
             pyproject_file = temp_path / "pyproject.toml"
             pyproject_file.write_text(pyproject_content)
 
-            # Run pylama on the test file with explicit linter
+            # Run flake8 on the test file with explicit plugin selection
             result = subprocess.run(
-                [sys.executable, "-m", "pylama", "-l", "length_checker", str(test_file)],
+                ["poetry", "run", "flake8", "--select=EL", str(test_file)],
                 cwd=temp_dir,
                 capture_output=True,
                 text=True,
@@ -1607,17 +1639,16 @@ max_class_length = 50
             output = result.stdout + result.stderr
 
             # Should contain correctly formatted error message
-            # Pylama format is typically: filename:line:col: error_code message
+            # Flake8 format is typically: filename:line:col: error_code message
             assert "test_format.py" in output
-            assert "LA101" in output
+            assert "EL001" in output
             assert "long_function" in output
             assert "8 lines long" in output
             assert "exceeds maximum of 5" in output
 
-    def test_pylama_integration_multiple_files(self):
-        """Test pylama integration with multiple files."""
+    def test_flake8_integration_multiple_files(self):  # noqa: EL001
+        """Test flake8 integration with multiple files."""
         import subprocess
-        import sys
         import tempfile
         from pathlib import Path
 
@@ -1652,16 +1683,26 @@ class CleanClass:
 
             # Create pyproject.toml
             pyproject_content = """
+[tool.poetry]
+name = "test-project"
+version = "0.1.0"
+description = "Test project"
+authors = ["Test <test@example.com>"]
+
 [tool.pyla-linters]
 max_function_length = 5
 max_class_length = 50
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
 """
             pyproject_file = temp_path / "pyproject.toml"
             pyproject_file.write_text(pyproject_content)
 
-            # Run pylama on all Python files with explicit linter
+            # Run flake8 on all Python files with explicit plugin selection
             result = subprocess.run(
-                [sys.executable, "-m", "pylama", "-l", "length_checker", str(file1), str(file2)],
+                ["poetry", "run", "flake8", "--select=EL", str(file1), str(file2)],
                 cwd=temp_dir,
                 capture_output=True,
                 text=True,
@@ -1671,19 +1712,19 @@ max_class_length = 50
 
             # Should find violation in file1 but not file2
             assert "file1.py" in output
-            assert "LA101" in output
+            assert "EL001" in output
             assert "violation_function" in output
 
             # Should not complain about file2's clean functions
             if "file2.py" in output:
-                # If file2 is mentioned, it shouldn't have LA101/LA102 errors
+                # If file2 is mentioned, it shouldn't have EL001/EL002 errors
                 file2_lines = [line for line in output.split("\n") if "file2.py" in line]
                 for line in file2_lines:
-                    assert "LA101" not in line
-                    assert "LA102" not in line
+                    assert "EL001" not in line
+                    assert "EL002" not in line
 
-    def test_pylama_integration_with_syntax_errors(self):
-        """Test pylama integration handles syntax errors gracefully."""
+    def test_flake8_integration_with_syntax_errors(self):
+        """Test flake8 integration handles syntax errors gracefully."""
         import subprocess
         import sys
         import tempfile
@@ -1713,18 +1754,18 @@ max_class_length = 50
             pyproject_file = temp_path / "pyproject.toml"
             pyproject_file.write_text(pyproject_content)
 
-            # Run pylama on the test file with explicit linter
+            # Run flake8 on the test file with our plugin
             result = subprocess.run(
-                [sys.executable, "-m", "pylama", "-l", "length_checker", str(test_file)],
+                [sys.executable, "-m", "flake8", "--select=EL", str(test_file)],
                 cwd=temp_dir,
                 capture_output=True,
                 text=True,
             )
 
-            # Pylama should run (might report syntax errors from other linters)
-            # but our plugin should not crash or produce LA101/LA102 errors
+            # flake8 should run (might report syntax errors)
+            # but our plugin should not crash or produce EL001/EL002 errors
             output = result.stdout + result.stderr
 
             # Our plugin should not report length violations for broken syntax
-            assert "LA101" not in output
-            assert "LA102" not in output
+            assert "EL001" not in output
+            assert "EL002" not in output

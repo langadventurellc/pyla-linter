@@ -1,12 +1,12 @@
 # pyla-linter
 
-A collection of Python linting tools designed to be used with Pylama.
+A collection of Python linting tools designed to be used with flake8.
 
 ## Features
 
 ### Length Checker Plugin
 
-A Pylama plugin that enforces configurable line limits for classes and functions, excluding docstrings and comments from the count.
+A flake8 plugin that enforces configurable line limits for classes and functions, excluding docstrings and comments from the count.
 
 #### Installation
 
@@ -24,18 +24,21 @@ pip install pyla-linter
 
 #### Usage
 
-The length checker integrates with Pylama as a plugin. Run it using:
+The length checker integrates with flake8 as a plugin. Run it using:
 
 ```bash
-# Check all Python files in current directory
-pylama
+# Check all Python files in current directory with our plugin
+flake8 --select=EL
 
 # Check specific files or directories
-pylama src/
-pylama myfile.py
+flake8 --select=EL src/
+flake8 --select=EL myfile.py
 
-# Use with specific linters only
-pylama --linters=length_checker
+# Use with all flake8 checks
+flake8
+
+# Use only our length checker plugin
+flake8 --select=EL001,EL002
 ```
 
 #### Configuration
@@ -51,19 +54,21 @@ max_function_length = 40
 max_class_length = 200
 ```
 
-You can also configure via command line arguments:
+You can also configure via command line arguments using flake8's standard option system:
 
 ```bash
-# Set custom limits
-pylama --max-function-length=30 --max-class-length=150
+# Use with flake8 ignore/select options
+flake8 --select=EL001  # Only check function length
+flake8 --select=EL002  # Only check class length
+flake8 --ignore=EL001  # Ignore function length violations
 ```
 
 #### Error Codes
 
 The length checker uses the following error codes:
 
-- **LA101**: Function exceeds maximum line limit
-- **LA102**: Class exceeds maximum line limit
+- **EL001**: Function exceeds maximum line limit
+- **EL002**: Class exceeds maximum line limit
 
 #### Line Counting Logic
 
@@ -80,7 +85,7 @@ For nested structures:
 
 #### Examples
 
-**Function that would trigger LA101:**
+**Function that would trigger EL001:**
 
 ```python
 def long_function():  # Line 1
@@ -94,7 +99,7 @@ def long_function():  # Line 1
     return x + y  # Line 41 (exceeds default limit of 40)
 ```
 
-**Class that would trigger LA102:**
+**Class that would trigger EL002:**
 
 ```python
 class LargeClass:  # Line 1
@@ -111,14 +116,17 @@ class LargeClass:  # Line 1
 
 #### Integration with Existing Workflow
 
-The length checker works seamlessly with other Pylama linters:
+The length checker works seamlessly with other flake8 plugins:
 
 ```bash
-# Run with multiple linters
-pylama --linters=pyflakes,pycodestyle,length_checker
+# Run with multiple checks (flake8 automatically includes all installed plugins)
+flake8
+
+# Run only our length checker with other specific checks
+flake8 --select=E,F,EL
 
 # Include in existing CI/CD pipelines
-poetry run pylama src/
+poetry run flake8 src/
 ```
 
 ## Development
