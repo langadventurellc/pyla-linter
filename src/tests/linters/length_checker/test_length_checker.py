@@ -1198,9 +1198,9 @@ class TestFileExclusionPatterns:
             errors = run_plugin_on_code(code, config, path)
             assert len(errors) == 1, f"Expected violation for path: {path}"
 
-    def test_exclusion_would_be_handled_by_pylama_not_plugin(self):
-        """Test that file exclusion is expected to be handled by pylama, not the plugin."""
-        # This test documents the current architecture where pylama handles
+    def test_exclusion_would_be_handled_by_flake8_not_plugin(self):
+        """Test that file exclusion is expected to be handled by flake8, not the plugin."""
+        # This test documents the current architecture where flake8 handles
         # file filtering and the plugin processes whatever files are passed to it
 
         tree = ast.parse("def test(): pass")
@@ -1723,8 +1723,8 @@ build-backend = "poetry.core.masonry.api"
                     assert "EL001" not in line
                     assert "EL002" not in line
 
-    def test_pylama_integration_with_syntax_errors(self):
-        """Test pylama integration handles syntax errors gracefully."""
+    def test_flake8_integration_with_syntax_errors(self):
+        """Test flake8 integration handles syntax errors gracefully."""
         import subprocess
         import sys
         import tempfile
@@ -1754,18 +1754,18 @@ max_class_length = 50
             pyproject_file = temp_path / "pyproject.toml"
             pyproject_file.write_text(pyproject_content)
 
-            # Run pylama on the test file with explicit linter
+            # Run flake8 on the test file with our plugin
             result = subprocess.run(
-                [sys.executable, "-m", "pylama", "-l", "length_checker", str(test_file)],
+                [sys.executable, "-m", "flake8", "--select=EL", str(test_file)],
                 cwd=temp_dir,
                 capture_output=True,
                 text=True,
             )
 
-            # Pylama should run (might report syntax errors from other linters)
-            # but our plugin should not crash or produce LA101/LA102 errors
+            # flake8 should run (might report syntax errors)
+            # but our plugin should not crash or produce EL001/EL002 errors
             output = result.stdout + result.stderr
 
             # Our plugin should not report length violations for broken syntax
-            assert "LA101" not in output
-            assert "LA102" not in output
+            assert "EL001" not in output
+            assert "EL002" not in output
