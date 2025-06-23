@@ -277,8 +277,8 @@ class ShortClass:
         errors = run_plugin_on_code(code, config)
         assert len(errors) == 1
         line, col, message, error_type = errors[0]
-        assert error_type == "EL002"
-        assert "EL002" in message
+        assert error_type == "WL002"  # Should be warning, not error (9 lines > 5 but < 10)
+        assert "WL002" in message
         assert "LongClass" in message
 
     def test_multiple_violations(self):
@@ -361,7 +361,10 @@ class TestErrorReporting:
     line1 = 1
     line2 = 2
     line3 = 3
-    return line1 + line2 + line3"""
+    line4 = 4
+    line5 = 5
+    line6 = 6
+    return line1 + line2 + line3 + line4 + line5 + line6"""
 
         config = LengthCheckerConfig(max_function_length=3)
 
@@ -374,8 +377,8 @@ class TestErrorReporting:
         assert error_type == "EL001"
         assert message.startswith("EL001")
         assert "long_function" in message
-        assert "5 lines long" in message
-        assert "exceeds maximum of 3" in message
+        assert "8 lines long" in message
+        assert "exceeds error threshold of 6" in message
 
     def test_error_message_format_class(self):
         """Test that class error messages follow correct format."""
@@ -385,7 +388,13 @@ class TestErrorReporting:
     def method2(self):
         return 2
     def method3(self):
-        return 3"""
+        return 3
+    def method4(self):
+        return 4
+    def method5(self):
+        return 5
+    def method6(self):
+        return 6"""
 
         config = LengthCheckerConfig(max_class_length=5)
 
@@ -398,8 +407,8 @@ class TestErrorReporting:
         assert error_type == "EL002"
         assert message.startswith("EL002")
         assert "LongClass" in message
-        assert "7 lines long" in message
-        assert "exceeds maximum of 5" in message
+        assert "13 lines long" in message
+        assert "exceeds error threshold of 10" in message
 
     def test_error_codes_are_unique(self):
         """Test that class and function violations have different error codes."""
@@ -409,7 +418,18 @@ class TestErrorReporting:
         line2 = 2
         line3 = 3
         line4 = 4
-        return line1 + line2 + line3 + line4"""
+        line5 = 5
+        line6 = 6
+        return line1 + line2 + line3 + line4 + line5 + line6
+
+    def another_method(self):
+        return 1
+
+    def third_method(self):
+        return 2
+
+    def fourth_method(self):
+        return 3"""
 
         config = LengthCheckerConfig(max_function_length=3, max_class_length=5)
 
@@ -479,10 +499,11 @@ class SecondClass:
         config = LengthCheckerConfig(max_function_length=4)  # 5 lines > 4 limit
 
         errors = run_plugin_on_code(code, config)
-        # Should have exactly 1 violation
+        # Should have exactly 1 violation (warning, not error)
         assert len(errors) == 1
         line, col, message, error_type = errors[0]
-        assert "5 lines long, exceeds maximum of 4" in message
+        assert error_type == "WL001"  # Should be warning
+        assert "5 lines long, exceeds warning threshold of 4" in message
 
     def test_multiple_error_ordering(self):
         """Test that multiple errors are reported in source code order."""
@@ -1769,3 +1790,743 @@ max_class_length = 50
             # Our plugin should not report length violations for broken syntax
             assert "EL001" not in output
             assert "EL002" not in output
+
+
+class TestWarningGeneration:
+    """Test the new warning generation functionality."""
+
+    def test_function_warning_at_1x_threshold(self):
+        """Test that functions generate warnings when exceeding 1x threshold but under 2x."""
+        code = """def warning_function():
+    line1 = 1
+    line2 = 2
+    line3 = 3
+    line4 = 4
+    line5 = 5
+    return line1 + line2 + line3 + line4 + line5"""
+
+        # Set threshold at 5, function has 7 lines (> 5 but < 10)
+        config = LengthCheckerConfig(max_function_length=5, max_class_length=50)
+
+        violations = run_plugin_on_code(code, config)
+        assert len(violations) == 1
+
+        line, col, message, violation_type = violations[0]
+        assert violation_type == "WL001"
+        assert "WL001" in message
+        assert "warning_function" in message
+        assert "warning threshold" in message
+        assert "recommend refactoring" in message
+
+    def test_class_warning_at_1x_threshold(self):
+        """Test that classes generate warnings when exceeding 1x threshold but under 2x."""
+        code = """class WarningClass:
+    def method1(self):
+        return 1
+    
+    def method2(self):
+        return 2
+
+    def method3(self):
+        return 3
+
+    def method4(self):
+        return 4"""
+
+        # Set threshold at 8, class has 11 lines (> 8 but < 16)
+        config = LengthCheckerConfig(max_function_length=50, max_class_length=8)
+
+        violations = run_plugin_on_code(code, config)
+        assert len(violations) == 1
+
+        line, col, message, violation_type = violations[0]
+        assert violation_type == "WL002"
+        assert "WL002" in message
+        assert "WarningClass" in message
+        assert "warning threshold" in message
+        assert "recommend refactoring" in message
+
+    def test_function_warning_message_format(self):
+        """Test that function warning messages follow correct format."""
+        code = """def test_function():
+    line1 = 1
+    line2 = 2
+    line3 = 3
+    line4 = 4
+    return line1 + line2 + line3 + line4"""
+
+        config = LengthCheckerConfig(max_function_length=4)
+
+        violations = run_plugin_on_code(code, config)
+        assert len(violations) == 1
+
+        line, col, message, violation_type = violations[0]
+        assert line == 1  # Warning reported on function definition line
+        assert col == 0
+        assert violation_type == "WL001"
+        assert message.startswith("WL001")
+        assert "test_function" in message
+        assert "6 lines long" in message
+        assert "exceeds warning threshold of 4" in message
+        assert "recommend refactoring" in message
+
+    def test_class_warning_message_format(self):
+        """Test that class warning messages follow correct format."""
+        code = """class TestClass:
+    def method1(self):
+        return 1
+    def method2(self):
+        return 2
+    def method3(self):
+        return 3"""
+
+        config = LengthCheckerConfig(max_class_length=5)
+
+        violations = run_plugin_on_code(code, config)
+        assert len(violations) == 1
+
+        line, col, message, violation_type = violations[0]
+        assert line == 1  # Warning reported on class definition line
+        assert col == 0
+        assert violation_type == "WL002"
+        assert message.startswith("WL002")
+        assert "TestClass" in message
+        assert "7 lines long" in message
+        assert "exceeds warning threshold of 5" in message
+        assert "recommend refactoring" in message
+
+    def test_multiple_function_warnings(self):
+        """Test multiple functions generating warnings."""
+        code = """def first_warning_function():
+    line1 = 1
+    line2 = 2
+    line3 = 3
+    return line1 + line2 + line3
+
+def second_warning_function():
+    line1 = 1
+    line2 = 2
+    line3 = 3
+    return line1 + line2 + line3"""
+
+        config = LengthCheckerConfig(max_function_length=3)
+
+        violations = run_plugin_on_code(code, config)
+        assert len(violations) == 2
+
+        # Both should be warnings (5 lines > 3 but < 6)
+        for violation in violations:
+            line, col, message, violation_type = violation
+            assert violation_type == "WL001"
+            assert "warning threshold" in message
+
+    def test_multiple_class_warnings(self):
+        """Test multiple classes generating warnings."""
+        code = """class FirstWarningClass:
+    def method1(self):
+        return 1
+    def method2(self):
+        return 2
+
+class SecondWarningClass:
+    def method1(self):
+        return 1
+    def method2(self):
+        return 2"""
+
+        config = LengthCheckerConfig(max_class_length=4)
+
+        violations = run_plugin_on_code(code, config)
+        assert len(violations) == 2
+
+        # Both should be warnings (5 lines > 4 but < 8)
+        for violation in violations:
+            line, col, message, violation_type = violation
+            assert violation_type == "WL002"
+            assert "warning threshold" in message
+
+
+class TestErrorGeneration:
+    """Test error generation at 2x threshold."""
+
+    def test_function_error_at_2x_threshold(self):
+        """Test that functions generate errors when exceeding 2x threshold."""
+        code = """def error_function():
+    line1 = 1
+    line2 = 2
+    line3 = 3
+    line4 = 4
+    line5 = 5
+    line6 = 6
+    line7 = 7
+    line8 = 8
+    line9 = 9
+    line10 = 10
+    line11 = 11
+    return sum([line1, line2, line3, line4, line5, line6, line7, line8, line9, line10, line11])"""
+
+        # Set threshold at 5, function has 13 lines (> 10 which is 2x threshold)
+        config = LengthCheckerConfig(max_function_length=5, max_class_length=50)
+
+        violations = run_plugin_on_code(code, config)
+        assert len(violations) == 1
+
+        line, col, message, violation_type = violations[0]
+        assert violation_type == "EL001"
+        assert "EL001" in message
+        assert "error_function" in message
+        assert "error threshold" in message
+        assert "recommend refactoring" in message
+
+    def test_class_error_at_2x_threshold(self):
+        """Test that classes generate errors when exceeding 2x threshold."""
+        code = """class ErrorClass:
+    def method1(self):
+        return 1
+    def method2(self):
+        return 2
+    def method3(self):
+        return 3
+    def method4(self):
+        return 4
+    def method5(self):
+        return 5
+    def method6(self):
+        return 6
+    def method7(self):
+        return 7
+    def method8(self):
+        return 8
+    def method9(self):
+        return 9
+    def method10(self):
+        return 10
+    def method11(self):
+        return 11"""
+
+        # Set threshold at 8, class has 17 lines (> 16 which is 2x threshold)
+        config = LengthCheckerConfig(max_function_length=50, max_class_length=8)
+
+        violations = run_plugin_on_code(code, config)
+        assert len(violations) == 1
+
+        line, col, message, violation_type = violations[0]
+        assert violation_type == "EL002"
+        assert "EL002" in message
+        assert "ErrorClass" in message
+        assert "error threshold" in message
+        assert "recommend refactoring" in message
+
+    def test_function_error_message_format(self):
+        """Test that function error messages follow correct format."""
+        code = """def test_function():
+    line1 = 1
+    line2 = 2
+    line3 = 3
+    line4 = 4
+    line5 = 5
+    line6 = 6
+    line7 = 7
+    line8 = 8
+    line9 = 9
+    return sum([line1, line2, line3, line4, line5, line6, line7, line8, line9])"""
+
+        config = LengthCheckerConfig(max_function_length=4)
+
+        violations = run_plugin_on_code(code, config)
+        assert len(violations) == 1
+
+        line, col, message, violation_type = violations[0]
+        assert line == 1  # Error reported on function definition line
+        assert col == 0
+        assert violation_type == "EL001"
+        assert message.startswith("EL001")
+        assert "test_function" in message
+        assert "10 lines long" in message
+        assert "exceeds error threshold of 8" in message  # 2x threshold
+        assert "recommend refactoring" in message
+
+    def test_class_error_message_format(self):
+        """Test that class error messages follow correct format."""
+        code = """class TestClass:
+    def method1(self):
+        return 1
+    def method2(self):
+        return 2
+    def method3(self):
+        return 3
+    def method4(self):
+        return 4
+    def method5(self):
+        return 5
+    def method6(self):
+        return 6
+    def method7(self):
+        return 7
+    def method8(self):
+        return 8
+    def method9(self):
+        return 9
+    def method10(self):
+        return 10
+    def method11(self):
+        return 11"""
+
+        config = LengthCheckerConfig(max_class_length=5)
+
+        violations = run_plugin_on_code(code, config)
+        assert len(violations) == 1
+
+        line, col, message, violation_type = violations[0]
+        assert line == 1  # Error reported on class definition line
+        assert col == 0
+        assert violation_type == "EL002"
+        assert message.startswith("EL002")
+        assert "TestClass" in message
+        assert "23 lines long" in message
+        assert "exceeds error threshold of 10" in message  # 2x threshold
+        assert "recommend refactoring" in message
+
+    def test_multiple_function_errors(self):
+        """Test multiple functions generating errors."""
+        code = """def first_error_function():
+    line1 = 1
+    line2 = 2
+    line3 = 3
+    line4 = 4
+    line5 = 5
+    line6 = 6
+    line7 = 7
+    return sum([line1, line2, line3, line4, line5, line6, line7])
+
+def second_error_function():
+    line1 = 1
+    line2 = 2
+    line3 = 3
+    line4 = 4
+    line5 = 5
+    line6 = 6
+    line7 = 7
+    return sum([line1, line2, line3, line4, line5, line6, line7])"""
+
+        config = LengthCheckerConfig(max_function_length=3)
+
+        violations = run_plugin_on_code(code, config)
+        assert len(violations) == 2
+
+        # Both should be errors (8 lines > 6 which is 2x threshold)
+        for violation in violations:
+            line, col, message, violation_type = violation
+            assert violation_type == "EL001"
+            assert "error threshold" in message
+
+    def test_multiple_class_errors(self):
+        """Test multiple classes generating errors."""
+        code = """class FirstErrorClass:
+    def method1(self):
+        return 1
+    def method2(self):
+        return 2
+    def method3(self):
+        return 3
+    def method4(self):
+        return 4
+    def method5(self):
+        return 5
+
+class SecondErrorClass:
+    def method1(self):
+        return 1
+    def method2(self):
+        return 2
+    def method3(self):
+        return 3
+    def method4(self):
+        return 4
+    def method5(self):
+        return 5"""
+
+        config = LengthCheckerConfig(max_class_length=4)
+
+        violations = run_plugin_on_code(code, config)
+        assert len(violations) == 2
+
+        # Both should be errors (9 lines > 8 which is 2x threshold)
+        for violation in violations:
+            line, col, message, violation_type = violation
+            assert violation_type == "EL002"
+            assert "error threshold" in message
+
+
+class TestNoViolationsUnderThreshold:
+    """Test that no violations are generated when under 1x threshold."""
+
+    def test_function_under_1x_threshold_no_violations(self):
+        """Test that functions under 1x threshold generate no violations."""
+        code = """def short_function():
+    line1 = 1
+    line2 = 2
+    return line1 + line2"""
+
+        # Set threshold at 5, function has 4 lines (< 5)
+        config = LengthCheckerConfig(max_function_length=5, max_class_length=50)
+
+        violations = run_plugin_on_code(code, config)
+        assert len(violations) == 0
+
+    def test_class_under_1x_threshold_no_violations(self):
+        """Test that classes under 1x threshold generate no violations."""
+        code = """class ShortClass:
+    def method1(self):
+        return 1
+    def method2(self):
+        return 2"""
+
+        # Set threshold at 8, class has 5 lines (< 8)
+        config = LengthCheckerConfig(max_function_length=50, max_class_length=8)
+
+        violations = run_plugin_on_code(code, config)
+        assert len(violations) == 0
+
+    def test_function_exactly_at_1x_threshold_no_violations(self):
+        """Test that functions exactly at 1x threshold generate no violations."""
+        code = """def exact_threshold_function():
+    line1 = 1
+    line2 = 2
+    line3 = 3
+    return line1 + line2 + line3"""
+
+        # Set threshold at 5, function has exactly 5 lines
+        config = LengthCheckerConfig(max_function_length=5, max_class_length=50)
+
+        violations = run_plugin_on_code(code, config)
+        assert len(violations) == 0
+
+    def test_class_exactly_at_1x_threshold_no_violations(self):
+        """Test that classes exactly at 1x threshold generate no violations."""
+        code = """class ExactThresholdClass:
+    def method1(self):
+        return 1
+    def method2(self):
+        return 2
+    def method3(self):
+        return 3"""
+
+        # Set threshold at 7, class has exactly 7 lines
+        config = LengthCheckerConfig(max_function_length=50, max_class_length=7)
+
+        violations = run_plugin_on_code(code, config)
+        assert len(violations) == 0
+
+
+class TestMixedScenarios:
+    """Test mixed scenarios with warnings and errors in same file."""
+
+    def test_mixed_function_warnings_and_errors(self):
+        """Test file with both function warnings and errors."""
+        code = """def warning_function():
+    line1 = 1
+    line2 = 2
+    line3 = 3
+    line4 = 4
+    return line1 + line2 + line3 + line4
+
+def error_function():
+    line1 = 1
+    line2 = 2
+    line3 = 3
+    line4 = 4
+    line5 = 5
+    line6 = 6
+    line7 = 7
+    return sum([line1, line2, line3, line4, line5, line6, line7])"""
+
+        # Threshold 4: warning_function = 6 lines (warning), error_function = 8 lines (error)
+        config = LengthCheckerConfig(max_function_length=4, max_class_length=50)
+
+        violations = run_plugin_on_code(code, config)
+        assert len(violations) == 2
+
+        # Should have one warning and one error
+        violation_types = [v[3] for v in violations]
+        assert "WL001" in violation_types
+        assert "EL001" in violation_types
+
+    def test_mixed_class_warnings_and_errors(self):
+        """Test file with both class warnings and errors."""
+        code = """class WarningClass:
+    def method1(self):
+        return 1
+    def method2(self):
+        return 2
+    def method3(self):
+        return 3
+
+class ErrorClass:
+    def method1(self):
+        return 1
+    def method2(self):
+        return 2
+    def method3(self):
+        return 3
+    def method4(self):
+        return 4
+    def method5(self):
+        return 5
+    def method6(self):
+        return 6
+    def method7(self):
+        return 7
+    def method8(self):
+        return 8
+    def method9(self):
+        return 9"""
+
+        # Threshold 5: WarningClass = 7 lines (warning), ErrorClass = 13 lines (error)
+        config = LengthCheckerConfig(max_function_length=50, max_class_length=5)
+
+        violations = run_plugin_on_code(code, config)
+        assert len(violations) == 2
+
+        # Should have one warning and one error
+        violation_types = [v[3] for v in violations]
+        assert "WL002" in violation_types
+        assert "EL002" in violation_types
+
+    def test_mixed_functions_and_classes(self):
+        """Test file with mixed function and class violations."""
+        code = """def warning_function():
+    line1 = 1
+    line2 = 2
+    line3 = 3
+    return line1 + line2 + line3
+
+class ErrorClass:
+    def method1(self):
+        return 1
+    def method2(self):
+        return 2
+    def method3(self):
+        return 3
+    def method4(self):
+        return 4
+    def method5(self):
+        return 5
+    def method6(self):
+        return 6
+    def method7(self):
+        return 7"""
+
+        # Function threshold 3: warning_function = 5 lines (warning)
+        # Class threshold 5: ErrorClass = 11 lines (error)
+        config = LengthCheckerConfig(max_function_length=3, max_class_length=5)
+
+        violations = run_plugin_on_code(code, config)
+        assert len(violations) == 2
+
+        # Should have function warning and class error
+        violation_types = [v[3] for v in violations]
+        assert "WL001" in violation_types
+        assert "EL002" in violation_types
+
+    def test_violation_ordering_source_order(self):
+        """Test that violations are reported in source code order."""
+        code = """def first_function():
+    line1 = 1
+    line2 = 2
+    line3 = 3
+    line4 = 4
+    return line1 + line2 + line3 + line4
+
+class MiddleClass:
+    def method1(self):
+        return 1
+    def method2(self):
+        return 2
+    def method3(self):
+        return 3
+
+def last_function():
+    line1 = 1
+    line2 = 2
+    line3 = 3
+    line4 = 4
+    line5 = 5
+    return line1 + line2 + line3 + line4 + line5"""
+
+        config = LengthCheckerConfig(max_function_length=3, max_class_length=4)
+
+        violations = run_plugin_on_code(code, config)
+        assert len(violations) == 3
+
+        # Check violations are in source order by line number
+        line_numbers = [v[0] for v in violations]
+        assert line_numbers == sorted(line_numbers)
+
+        # Check specific ordering
+        assert line_numbers[0] == 1  # first_function
+        assert line_numbers[1] == 8  # MiddleClass
+        assert line_numbers[2] == 16  # last_function
+
+
+class TestNewEdgeCases:
+    """Test edge cases and boundary conditions for the new warning system."""
+
+    def test_function_exactly_at_2x_threshold(self):
+        """Test function exactly at 2x threshold generates error."""
+        code = """def exact_2x_function():
+    line1 = 1
+    line2 = 2
+    line3 = 3
+    line4 = 4
+    line5 = 5
+    return line1 + line2 + line3 + line4 + line5"""
+
+        # Threshold 3, function = 6 lines (exactly 2x threshold)
+        config = LengthCheckerConfig(max_function_length=3, max_class_length=50)
+
+        violations = run_plugin_on_code(code, config)
+        assert len(violations) == 1
+        assert violations[0][3] == "EL001"  # Should be error
+
+    def test_class_exactly_at_2x_threshold(self):
+        """Test class exactly at 2x threshold generates error."""
+        code = """class Exact2xClass:
+    def method1(self):
+        return 1
+    def method2(self):
+        return 2
+    def method3(self):
+        return 3"""
+
+        # Threshold 3, class = 6 lines (exactly 2x threshold)
+        config = LengthCheckerConfig(max_function_length=50, max_class_length=3)
+
+        violations = run_plugin_on_code(code, config)
+        assert len(violations) == 1
+        assert violations[0][3] == "EL002"  # Should be error
+
+    def test_function_one_over_2x_threshold(self):
+        """Test function one line over 2x threshold generates error."""
+        code = """def over_2x_function():
+    line1 = 1
+    line2 = 2
+    line3 = 3
+    line4 = 4
+    line5 = 5
+    line6 = 6
+    return line1 + line2 + line3 + line4 + line5 + line6"""
+
+        # Threshold 3, function = 7 lines (> 6 which is 2x threshold)
+        config = LengthCheckerConfig(max_function_length=3, max_class_length=50)
+
+        violations = run_plugin_on_code(code, config)
+        assert len(violations) == 1
+        assert violations[0][3] == "EL001"  # Should be error
+
+    def test_class_one_over_2x_threshold(self):
+        """Test class one line over 2x threshold generates error."""
+        code = """class Over2xClass:
+    def method1(self):
+        return 1
+    def method2(self):
+        return 2
+    def method3(self):
+        return 3
+    def method4(self):
+        return 4"""
+
+        # Threshold 3, class = 7 lines (> 6 which is 2x threshold)
+        config = LengthCheckerConfig(max_function_length=50, max_class_length=3)
+
+        violations = run_plugin_on_code(code, config)
+        assert len(violations) == 1
+        assert violations[0][3] == "EL002"  # Should be error
+
+    def test_warning_codes_generation(self):
+        """Test that warning codes WL001 and WL002 are generated correctly."""
+        code = """def warning_function():
+    line1 = 1
+    line2 = 2
+    line3 = 3
+    return line1 + line2 + line3
+
+class WarningClass:
+    def method(self):
+        return 1
+    def method2(self):
+        return 2"""
+
+        config = LengthCheckerConfig(max_function_length=3, max_class_length=4)
+
+        violations = run_plugin_on_code(code, config)
+        assert len(violations) == 2
+
+        violation_codes = [v[3] for v in violations]
+        assert "WL001" in violation_codes  # Function warning
+        assert "WL002" in violation_codes  # Class warning
+
+        # Check specific messages
+        for line, col, message, code in violations:
+            if code == "WL001":
+                assert "warning_function" in message
+                assert "warning threshold" in message
+            elif code == "WL002":
+                assert "WarningClass" in message
+                assert "warning threshold" in message
+
+    def test_message_format_consistency(self):
+        """Test that all message formats include required elements."""
+        code = """def warning_function():
+    line1 = 1
+    line2 = 2
+    line3 = 3
+    return line1 + line2 + line3
+
+def error_function():
+    line1 = 1
+    line2 = 2
+    line3 = 3
+    line4 = 4
+    line5 = 5
+    line6 = 6
+    return sum([line1, line2, line3, line4, line5, line6])
+
+class WarningClass:
+    def method(self):
+        return 1
+    def method2(self):
+        return 2
+
+class ErrorClass:
+    def method1(self):
+        return 1
+    def method2(self):
+        return 2
+    def method3(self):
+        return 3
+    def method4(self):
+        return 4
+    def method5(self):
+        return 5
+    def method6(self):
+        return 6
+    def method7(self):
+        return 7"""
+
+        config = LengthCheckerConfig(max_function_length=3, max_class_length=4)
+
+        violations = run_plugin_on_code(code, config)
+        assert len(violations) == 4
+
+        for line, col, message, violation_type in violations:
+            # All messages should contain these elements
+            assert "lines long" in message
+            assert "threshold" in message
+            assert "recommend refactoring" in message
+
+            # Check specific format based on type
+            if violation_type in ["WL001", "WL002"]:
+                assert "warning threshold" in message
+            elif violation_type in ["EL001", "EL002"]:
+                assert "error threshold" in message
