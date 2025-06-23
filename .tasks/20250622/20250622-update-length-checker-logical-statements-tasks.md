@@ -154,17 +154,18 @@ sequenceDiagram
 
   - `src/tests/linters/length_checker/test_length_checker.py` - Updated all test assertions to expect "statements long" instead of "lines long" in error messages to match the new statement-based counting system. Fixed test expectations for nested function counting to reflect that outer functions with minimal statements don't violate thresholds. Reinstalled plugin to ensure flake8 integration tests use updated code. All 101 tests now pass.
 
-- [ ] 4.0 Update CodeElement Integration
+- [x] 4.0 Update CodeElement Integration
 
-  - [ ] 4.1 Update `code_element.py` method references for statement counting
-  - [ ] 4.2 Update `get_effective_lines()` method name to `get_effective_statements()`
-  - [ ] 4.3 Update docstrings and comments to reflect statement counting
-  - [ ] 4.4 Ensure proper type annotations for new statement counting methods
-  - [ ] 4.5 Update unit tests for CodeElement changes
+  - [x] 4.1 Update `code_element.py` method references for statement counting
+  - [x] 4.2 Update `get_effective_lines()` method name to `get_effective_statements()`
+  - [x] 4.3 Update docstrings and comments to reflect statement counting
+  - [x] 4.4 Ensure proper type annotations for new statement counting methods
+  - [x] 4.5 Update unit tests for CodeElement changes
 
   ### Files modified with description of changes
 
-  - (to be filled in after task completion)
+  - `src/linters/length_checker/code_element.py` - Updated class and method docstrings to reflect statement counting instead of line counting. Enhanced type annotations including return type for __init__. Modified get_effective_statements method to require source_code parameter for proper AST-based statement counting. Improved documentation clarity and accuracy for statement counting functionality.
+  - `src/tests/linters/length_checker/test_code_element.py` - Created comprehensive test suite with 13 test cases covering CodeElement initialization, total_lines property calculation, get_effective_statements method with both mocked and real StatementCounter instances, nested elements handling, repr method output, parametrized testing for various line ranges, and complex statement counting scenarios. All tests pass and validate proper integration with StatementCounter functionality.
 
 - [ ] 5.0 Comprehensive Test Suite Updates
 
