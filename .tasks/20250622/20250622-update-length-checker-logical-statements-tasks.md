@@ -124,18 +124,22 @@ sequenceDiagram
   - `src/linters/length_checker/statement_visitor.py` - Created new StatementVisitor class that counts logical statements within code elements using AST traversal. Handles all Python statement types while properly excluding nested function/class content. Includes context-aware counting for class methods vs nested definitions.
   - `src/tests/linters/length_checker/test_statement_visitor.py` - Created comprehensive test suite with 27 test cases covering all statement types, edge cases, nested structures, performance scenarios, and boundary conditions. All tests pass and verify correct statement counting behavior.
 
-- [ ] 2.0 Replace LineCounter with StatementCounter
+- [x] 2.0 Replace LineCounter with StatementCounter
 
-  - [ ] 2.1 Rename `line_counter.py` to `statement_counter.py` and update class name
-  - [ ] 2.2 Replace `count_element_lines()` method with `count_element_statements()` method
-  - [ ] 2.3 Update method signature and implementation to use StatementVisitor
-  - [ ] 2.4 Maintain exclusion logic for comments, docstrings, and empty lines
-  - [ ] 2.5 Update all import statements throughout the codebase
-  - [ ] 2.6 Update comprehensive unit tests for StatementCounter functionality
+  - [x] 2.1 Rename `line_counter.py` to `statement_counter.py` and update class name
+  - [x] 2.2 Replace `count_element_lines()` method with `count_element_statements()` method
+  - [x] 2.3 Update method signature and implementation to use StatementVisitor
+  - [x] 2.4 Maintain exclusion logic for comments, docstrings, and empty lines
+  - [x] 2.5 Update all import statements throughout the codebase
+  - [x] 2.6 Update comprehensive unit tests for StatementCounter functionality
 
   ### Files modified with description of changes
 
-  - (to be filled in after task completion)
+  - `src/linters/length_checker/statement_counter.py` - Created new StatementCounter class that replaces LineCounter, uses StatementVisitor for AST-based statement counting, maintains fallback logic for parsing errors, includes proper type annotations and error handling.
+  - `src/linters/length_checker/plugin.py` - Updated to import and use StatementCounter instead of LineCounter, modified all method calls and variable names, updated error messages to reference "statements" instead of "lines" while maintaining error codes (EL001, EL002, WL001, WL002).
+  - `src/linters/length_checker/code_element.py` - Updated import statements and method signature from `get_effective_lines()` to `get_effective_statements()` to work with StatementCounter.
+  - `src/tests/linters/length_checker/test_length_checker.py` - Updated import statements, renamed TestLineCounter to TestStatementCounter, modified test methods to use StatementCounter and updated expected counts to match statement-based counting behavior.
+  - Removed `src/linters/length_checker/line_counter.py` - File deleted as part of renaming to statement_counter.py
 
 - [ ] 3.0 Update Plugin Integration and Error Messages
 

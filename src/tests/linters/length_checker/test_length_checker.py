@@ -6,8 +6,8 @@ from typing import List, Tuple
 from src.linters.length_checker.ast_visitor import ASTVisitor
 from src.linters.length_checker.code_element import CodeElement
 from src.linters.length_checker.config import LengthCheckerConfig
-from src.linters.length_checker.line_counter import LineCounter
 from src.linters.length_checker.plugin import LengthCheckerPlugin
+from src.linters.length_checker.statement_counter import StatementCounter
 
 
 def run_plugin_on_code(
@@ -120,27 +120,27 @@ class TestASTVisitor:
         assert elements[0].node_type == "function"
 
 
-class TestLineCounter:
-    """Test the line counting functionality."""
+class TestStatementCounter:
+    """Test the statement counting functionality."""
 
-    def test_simple_line_counting(self):
-        """Test basic line counting without comments or docstrings."""
+    def test_simple_statement_counting(self):
+        """Test basic statement counting without comments or docstrings."""
         code = """def simple_function():
     x = 1
     y = 2
     return x + y"""
 
         lines = code.splitlines()
-        counter = LineCounter(lines)
+        counter = StatementCounter(lines)
 
         element = CodeElement("simple_function", "function", 1, 4)
-        actual_lines = counter.count_element_lines(element, code)
+        actual_statements = counter.count_element_statements(element, code)
 
-        # Should count all 4 lines as they're all code
-        assert actual_lines == 4
+        # Should count 4 statements: def, x=1, y=2, return
+        assert actual_statements == 4
 
-    def test_line_counting_with_comments(self):
-        """Test line counting excluding comment lines."""
+    def test_statement_counting_with_comments(self):
+        """Test statement counting excluding comment lines."""
         code = """def function_with_comments():
     # This is a comment
     x = 1  # inline comment but line has code
@@ -148,16 +148,16 @@ class TestLineCounter:
     return x"""
 
         lines = code.splitlines()
-        counter = LineCounter(lines)
+        counter = StatementCounter(lines)
 
         element = CodeElement("function_with_comments", "function", 1, 5)
-        actual_lines = counter.count_element_lines(element, code)
+        actual_statements = counter.count_element_statements(element, code)
 
-        # Should count 3 lines (function def, x=1 line, return) - excluding comment-only lines
-        assert actual_lines == 3
+        # Should count 3 statements (function def, x=1, return) - comments don't count as statements
+        assert actual_statements == 3
 
-    def test_line_counting_with_docstring(self):
-        """Test line counting excluding docstring lines."""
+    def test_statement_counting_with_docstring(self):
+        """Test statement counting excluding docstring lines."""
         code = '''def function_with_docstring():
     """This is a docstring.
 
@@ -167,16 +167,17 @@ class TestLineCounter:
     return x'''
 
         lines = code.splitlines()
-        counter = LineCounter(lines)
+        counter = StatementCounter(lines)
 
         element = CodeElement("function_with_docstring", "function", 1, 7)
-        actual_lines = counter.count_element_lines(element, code)
+        actual_statements = counter.count_element_statements(element, code)
 
-        # Should count 3 lines (function def, x=1, return) - excluding docstring
-        assert actual_lines == 3
+        # Should count 4 statements (function def, docstring expr, x=1, return)
+        # docstring is still a statement
+        assert actual_statements == 4
 
-    def test_line_counting_with_empty_lines(self):
-        """Test line counting excluding empty lines."""
+    def test_statement_counting_with_empty_lines(self):
+        """Test statement counting excluding empty lines."""
         code = """def function_with_empty_lines():
 
     x = 1
@@ -186,16 +187,17 @@ class TestLineCounter:
     return x + y"""
 
         lines = code.splitlines()
-        counter = LineCounter(lines)
+        counter = StatementCounter(lines)
 
-        element = CodeElement("function_with_empty_lines", "function", 1, 8)
-        actual_lines = counter.count_element_lines(element, code)
+        element = CodeElement("function_with_empty_lines", "function", 1, 7)
+        actual_statements = counter.count_element_statements(element, code)
 
-        # Should count 4 lines (function def, x=1, y=2, return) - excluding empty lines
-        assert actual_lines == 4
+        # Should count 4 statements (function def, x=1, y=2, return)
+        # empty lines don't affect statement count
+        assert actual_statements == 4
 
-    def test_class_line_counting(self):
-        """Test line counting for classes."""
+    def test_class_statement_counting(self):
+        """Test statement counting for classes."""
         code = '''class TestClass:
     """Class docstring."""
 
@@ -208,13 +210,14 @@ class TestLineCounter:
         return self.x'''
 
         lines = code.splitlines()
-        counter = LineCounter(lines)
+        counter = StatementCounter(lines)
 
         element = CodeElement("TestClass", "class", 1, 10)
-        actual_lines = counter.count_element_lines(element, code)
+        actual_statements = counter.count_element_statements(element, code)
 
-        # Should count actual code lines, excluding docstrings, comments, and empty lines
-        assert actual_lines == 5  # class def, __init__ def, self.x=1, method def, return
+        # Should count: class def, docstring expr, __init__ def, self.x=1,
+        # method def, method docstring expr, return
+        assert actual_statements == 7
 
 
 class TestLengthCheckerPlugin:

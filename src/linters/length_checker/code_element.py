@@ -3,7 +3,7 @@
 from typing import TYPE_CHECKING, List
 
 if TYPE_CHECKING:
-    from .line_counter import LineCounter
+    from .statement_counter import StatementCounter
 
 
 class CodeElement:
@@ -21,9 +21,9 @@ class CodeElement:
         """Total lines including nested elements."""
         return self.end_line - self.start_line + 1
 
-    def get_effective_lines(self, line_counter: "LineCounter") -> int:
-        """Get effective code lines excluding docstrings and comments."""
-        return line_counter.count_element_lines(self, "")
+    def get_effective_statements(self, statement_counter: "StatementCounter") -> int:
+        """Get effective code statements excluding docstrings and comments."""
+        return statement_counter.count_element_statements(self, "")
 
     def __repr__(self) -> str:
         return f"CodeElement({self.name}, {self.node_type}, {self.start_line}-{self.end_line})"
