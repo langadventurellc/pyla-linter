@@ -35,7 +35,7 @@ def function_two():
                     "--select=EL101",
                     str(temp_path),
                 ],
-                cwd="/Users/zach/code/pyla-linter",
+                cwd=Path.cwd(),
                 capture_output=True,
                 text=True,
             )
@@ -71,7 +71,7 @@ def function_two():
                     "--select=EL101",
                     str(test_file),
                 ],
-                cwd="/Users/zach/code/pyla-linter",
+                cwd=Path.cwd(),
                 capture_output=True,
                 text=True,
             )
@@ -109,7 +109,7 @@ select = EL101
             # Run flake8 with our plugin
             result = subprocess.run(
                 ["poetry", "run", "flake8", "--config", str(config_file), str(test_file)],
-                cwd="/Users/zach/code/pyla-linter",
+                cwd=Path.cwd(),
                 capture_output=True,
                 text=True,
             )
@@ -147,7 +147,7 @@ def function_two():
                     "--select=EL101",
                     str(test_file),
                 ],
-                cwd="/Users/zach/code/pyla-linter",
+                cwd=Path.cwd(),
                 capture_output=True,
                 text=True,
             )
@@ -183,7 +183,7 @@ def function_two():
                     "--select=EL101",
                     str(test_file),
                 ],
-                cwd="/Users/zach/code/pyla-linter",
+                cwd=Path.cwd(),
                 capture_output=True,
                 text=True,
             )
@@ -241,7 +241,7 @@ class ClassTwo:
                     str(file2),
                     str(file3),
                 ],
-                cwd="/Users/zach/code/pyla-linter",
+                cwd=Path.cwd(),
                 capture_output=True,
                 text=True,
             )
@@ -283,7 +283,7 @@ ignore = ["EL101"]
             # This test documents the expected behavior if pyproject.toml support is added
             result = subprocess.run(
                 ["poetry", "run", "flake8", str(test_file)],
-                cwd="/Users/zach/code/pyla-linter",
+                cwd=Path.cwd(),
                 capture_output=True,
                 text=True,
             )
@@ -317,7 +317,7 @@ def function_two():
             # Run flake8 with --select option
             result = subprocess.run(
                 ["poetry", "run", "flake8", "--select=EL101", str(test_file)],
-                cwd="/Users/zach/code/pyla-linter",
+                cwd=Path.cwd(),
                 capture_output=True,
                 text=True,
             )
@@ -346,7 +346,7 @@ def function_two():
             # Run flake8 with --ignore option, but also select only EL101 to test specifically
             result = subprocess.run(
                 ["poetry", "run", "flake8", "--ignore=EL101", "--select=EL101", str(test_file)],
-                cwd="/Users/zach/code/pyla-linter",
+                cwd=Path.cwd(),
                 capture_output=True,
                 text=True,
             )
@@ -375,7 +375,7 @@ def function_two():
             # Run flake8 with --extend-ignore option
             result = subprocess.run(
                 ["poetry", "run", "flake8", "--extend-ignore=EL101", str(test_file)],
-                cwd="/Users/zach/code/pyla-linter",
+                cwd=Path.cwd(),
                 capture_output=True,
                 text=True,
             )

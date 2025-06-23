@@ -348,7 +348,7 @@ class TestPerformanceIntegration:
             start_time = time.time()
             result = subprocess.run(
                 ["poetry", "run", "flake8", "--select=EL101", str(test_file)],
-                cwd="/Users/zach/code/pyla-linter",
+                cwd=Path.cwd(),
                 capture_output=True,
                 text=True,
             )
