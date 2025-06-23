@@ -549,7 +549,7 @@ def second_function():
 
         line, col, message, error_type = errors[0]
         assert "8 lines long" in message  # Actual length
-        assert "exceeds maximum of 5" in message  # Configured limit
+        assert "exceeds warning threshold of 5" in message  # Configured limit
 
     def test_error_reporting_with_file_reading(self):
         """Test error reporting when plugin reads file from disk."""
@@ -576,7 +576,7 @@ def second_function():
             errors = list(plugin.run())
             assert len(errors) == 1
             line, col, message, error_type = errors[0]
-            assert "EL001" in message
+            assert "WL001" in message
             assert "file_function" in message
         finally:
             os.unlink(temp_path)
@@ -1453,7 +1453,7 @@ build-backend = "poetry.core.masonry.api"
 
             # Run flake8 on the test file with explicit plugin selection
             result = subprocess.run(
-                ["poetry", "run", "flake8", "--select=EL", str(test_file)],
+                ["poetry", "run", "flake8", "--select=WL,EL", str(test_file)],
                 cwd=temp_dir,
                 capture_output=True,
                 text=True,
@@ -1462,10 +1462,10 @@ build-backend = "poetry.core.masonry.api"
             # Should detect violations and return non-zero exit code
             assert result.returncode != 0
 
-            # Should contain our error codes in output
+            # Should contain our violation codes in output
             output = result.stdout + result.stderr
-            assert "EL001" in output  # Function length violation
-            assert "EL002" in output  # Class length violation
+            assert "WL001" in output  # Function length warning (43 lines > 40)
+            assert "WL002" in output  # Class length warning (267 lines > 200 but < 400)
             assert "very_long_function" in output
             assert "VeryLongClass" in output
 
@@ -1508,7 +1508,7 @@ max_class_length = 200
 
             # Run flake8 on the test file with explicit plugin selection
             result = subprocess.run(
-                ["poetry", "run", "flake8", "--select=EL", str(test_file)],
+                ["poetry", "run", "flake8", "--select=WL,EL", str(test_file)],
                 cwd=temp_dir,
                 capture_output=True,
                 text=True,
@@ -1567,7 +1567,7 @@ build-backend = "poetry.core.masonry.api"
             pyproject_file.write_text(strict_pyproject)
 
             result_strict = subprocess.run(
-                ["poetry", "run", "flake8", "--select=EL", str(test_file)],
+                ["poetry", "run", "flake8", "--select=WL,EL", str(test_file)],
                 cwd=temp_dir,
                 capture_output=True,
                 text=True,
@@ -1575,7 +1575,7 @@ build-backend = "poetry.core.masonry.api"
 
             # Should have violations with strict limits
             strict_output = result_strict.stdout + result_strict.stderr
-            assert "EL001" in strict_output
+            assert "WL001" in strict_output
 
             # Test with lenient limits - should not have violations
             lenient_pyproject = """
@@ -1596,7 +1596,7 @@ build-backend = "poetry.core.masonry.api"
             pyproject_file.write_text(lenient_pyproject)
 
             result_lenient = subprocess.run(
-                ["poetry", "run", "flake8", "--select=EL", str(test_file)],
+                ["poetry", "run", "flake8", "--select=WL,EL", str(test_file)],
                 cwd=temp_dir,
                 capture_output=True,
                 text=True,
@@ -1604,6 +1604,7 @@ build-backend = "poetry.core.masonry.api"
 
             # Should not have violations with lenient limits
             lenient_output = result_lenient.stdout + result_lenient.stderr
+            assert "WL001" not in lenient_output
             assert "EL001" not in lenient_output
 
     def test_flake8_integration_error_format(self):  # noqa: EL001
@@ -1651,7 +1652,7 @@ build-backend = "poetry.core.masonry.api"
 
             # Run flake8 on the test file with explicit plugin selection
             result = subprocess.run(
-                ["poetry", "run", "flake8", "--select=EL", str(test_file)],
+                ["poetry", "run", "flake8", "--select=WL,EL", str(test_file)],
                 cwd=temp_dir,
                 capture_output=True,
                 text=True,
@@ -1662,10 +1663,10 @@ build-backend = "poetry.core.masonry.api"
             # Should contain correctly formatted error message
             # Flake8 format is typically: filename:line:col: error_code message
             assert "test_format.py" in output
-            assert "EL001" in output
+            assert "WL001" in output
             assert "long_function" in output
             assert "8 lines long" in output
-            assert "exceeds maximum of 5" in output
+            assert "exceeds warning threshold of 5" in output
 
     def test_flake8_integration_multiple_files(self):  # noqa: EL001
         """Test flake8 integration with multiple files."""
@@ -1723,7 +1724,7 @@ build-backend = "poetry.core.masonry.api"
 
             # Run flake8 on all Python files with explicit plugin selection
             result = subprocess.run(
-                ["poetry", "run", "flake8", "--select=EL", str(file1), str(file2)],
+                ["poetry", "run", "flake8", "--select=WL,EL", str(file1), str(file2)],
                 cwd=temp_dir,
                 capture_output=True,
                 text=True,
@@ -1733,7 +1734,7 @@ build-backend = "poetry.core.masonry.api"
 
             # Should find violation in file1 but not file2
             assert "file1.py" in output
-            assert "EL001" in output
+            assert "WL001" in output  # 9 lines > 5 threshold but < 10 (2x threshold)
             assert "violation_function" in output
 
             # Should not complain about file2's clean functions
@@ -1823,7 +1824,7 @@ class TestWarningGeneration:
         code = """class WarningClass:
     def method1(self):
         return 1
-    
+
     def method2(self):
         return 2
 
@@ -2042,7 +2043,7 @@ class TestErrorGeneration:
         assert violation_type == "EL001"
         assert message.startswith("EL001")
         assert "test_function" in message
-        assert "10 lines long" in message
+        assert "11 lines long" in message
         assert "exceeds error threshold of 8" in message  # 2x threshold
         assert "recommend refactoring" in message
 
