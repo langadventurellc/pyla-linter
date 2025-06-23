@@ -105,16 +105,16 @@ sequenceDiagram
 
 ## Implementation Tasks
 
-- [ ] 1.0 Update Plugin Violation Detection Logic
+- [x] 1.0 Update Plugin Violation Detection Logic
 
-  - [ ] 1.1 Modify `_check_element_violations` method to implement two-tier threshold checking
-  - [ ] 1.2 Update method to generate both warnings and errors based on length thresholds
-  - [ ] 1.3 Ensure violations are yielded in correct order (warnings before errors for same element)
-  - [ ] 1.4 Test the updated violation detection logic with existing test helper functions
+  - [x] 1.1 Modify `_check_element_violations` method to implement two-tier threshold checking
+  - [x] 1.2 Update method to generate both warnings and errors based on length thresholds
+  - [x] 1.3 Ensure violations are yielded in correct order (warnings before errors for same element)
+  - [x] 1.4 Test the updated violation detection logic with existing test helper functions
 
   ### Files modified with description of changes
 
-  - (to be filled in after task completion)
+  - `src/linters/length_checker/plugin.py` - Updated `_check_element_violations` method to implement two-tier threshold system (warnings at 1x threshold, errors at 2x threshold). Added new warning message creation methods `_create_function_warning` and `_create_class_warning` for WL001/WL002 codes. Updated existing error message methods to reference 2x threshold and include "recommend refactoring" text.
 
 - [ ] 2.0 Update Message Generation Methods
 
