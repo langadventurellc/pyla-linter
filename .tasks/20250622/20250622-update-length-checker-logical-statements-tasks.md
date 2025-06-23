@@ -110,18 +110,19 @@ sequenceDiagram
 
 ## Implementation Tasks
 
-- [ ] 1.0 Create AST Statement Counter Core Logic
+- [x] 1.0 Create AST Statement Counter Core Logic
 
-  - [ ] 1.1 Create new `StatementVisitor` class for AST traversal within code elements
-  - [ ] 1.2 Implement statement type detection for all required AST node types (Assign, Expr, Return, etc.)
-  - [ ] 1.3 Add scope boundary handling to prevent counting nested function/class statements
-  - [ ] 1.4 Handle compound statements correctly (if/elif/else, try/except/finally as separate units)
-  - [ ] 1.5 Create comprehensive unit tests for the StatementVisitor class
-  - [ ] 1.6 Implement performance optimizations for AST traversal
+  - [x] 1.1 Create new `StatementVisitor` class for AST traversal within code elements
+  - [x] 1.2 Implement statement type detection for all required AST node types (Assign, Expr, Return, etc.)
+  - [x] 1.3 Add scope boundary handling to prevent counting nested function/class statements
+  - [x] 1.4 Handle compound statements correctly (if/elif/else, try/except/finally as separate units)
+  - [x] 1.5 Create comprehensive unit tests for the StatementVisitor class
+  - [x] 1.6 Implement performance optimizations for AST traversal
 
   ### Files modified with description of changes
 
-  - (to be filled in after task completion)
+  - `src/linters/length_checker/statement_visitor.py` - Created new StatementVisitor class that counts logical statements within code elements using AST traversal. Handles all Python statement types while properly excluding nested function/class content. Includes context-aware counting for class methods vs nested definitions.
+  - `src/tests/linters/length_checker/test_statement_visitor.py` - Created comprehensive test suite with 27 test cases covering all statement types, edge cases, nested structures, performance scenarios, and boundary conditions. All tests pass and verify correct statement counting behavior.
 
 - [ ] 2.0 Replace LineCounter with StatementCounter
 
