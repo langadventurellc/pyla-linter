@@ -107,28 +107,57 @@ class LengthCheckerPlugin:
     def _check_element_violations(
         self, element, line_counter, code: str
     ) -> Iterator[Tuple[int, int, str, str]]:
-        """Check a single element for length violations and yield flake8 errors."""
+        """Check a single element for length violations and yield flake8 warnings and errors."""
         effective_lines = line_counter.count_element_lines(element, code)
 
-        if element.node_type == "class" and effective_lines > self.config.max_class_length:
-            yield self._create_class_violation(element, effective_lines)
-        elif element.node_type == "function" and effective_lines > self.config.max_function_length:
-            yield self._create_function_violation(element, effective_lines)
+        if element.node_type == "class":
+            threshold = self.config.max_class_length
+            if effective_lines > threshold * 2:
+                # Error at 2x threshold
+                yield self._create_class_violation(element, effective_lines)
+            elif effective_lines > threshold:
+                # Warning at 1x threshold
+                yield self._create_class_warning(element, effective_lines)
+        elif element.node_type == "function":
+            threshold = self.config.max_function_length
+            if effective_lines > threshold * 2:
+                # Error at 2x threshold
+                yield self._create_function_violation(element, effective_lines)
+            elif effective_lines > threshold:
+                # Warning at 1x threshold
+                yield self._create_function_warning(element, effective_lines)
 
     def _create_class_violation(self, element, effective_lines: int) -> Tuple[int, int, str, str]:
-        """Create a class length violation tuple for flake8."""
+        """Create a class length error tuple for flake8."""
         message = (
             f"EL002 Class '{element.name}' is {effective_lines} lines long, "
-            f"exceeds maximum of {self.config.max_class_length}"
+            f"exceeds error threshold of {self.config.max_class_length * 2}, recommend refactoring"
         )
         return (element.start_line, 0, message, "EL002")
 
     def _create_function_violation(
         self, element, effective_lines: int
     ) -> Tuple[int, int, str, str]:
-        """Create a function length violation tuple for flake8."""
+        """Create a function length error tuple for flake8."""
         message = (
             f"EL001 Function '{element.name}' is {effective_lines} lines long, "
-            f"exceeds maximum of {self.config.max_function_length}"
+            f"exceeds error threshold of {self.config.max_function_length * 2}, "
+            f"recommend refactoring"
         )
         return (element.start_line, 0, message, "EL001")
+
+    def _create_class_warning(self, element, effective_lines: int) -> Tuple[int, int, str, str]:
+        """Create a class length warning tuple for flake8."""
+        message = (
+            f"WL002 Class '{element.name}' is {effective_lines} lines long, "
+            f"exceeds warning threshold of {self.config.max_class_length}, recommend refactoring"
+        )
+        return (element.start_line, 0, message, "WL002")
+
+    def _create_function_warning(self, element, effective_lines: int) -> Tuple[int, int, str, str]:
+        """Create a function length warning tuple for flake8."""
+        message = (
+            f"WL001 Function '{element.name}' is {effective_lines} lines long, "
+            f"exceeds warning threshold of {self.config.max_function_length}, recommend refactoring"
+        )
+        return (element.start_line, 0, message, "WL001")
