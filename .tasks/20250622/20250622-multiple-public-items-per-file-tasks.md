@@ -75,12 +75,12 @@ sequenceDiagram
 
 - `src/linters/multiple_public_items/` - New directory for the linter implementation ✅ Created
 - `src/linters/multiple_public_items/__init__.py` - Package initialization and exports ✅ Created
-- `src/linters/multiple_public_items/plugin.py` - Main plugin class implementing flake8 interface
+- `src/linters/multiple_public_items/plugin.py` - Main plugin class implementing flake8 interface ✅ Created
 - `src/linters/multiple_public_items/ast_visitor.py` - AST visitor for collecting public items ✅ Created
 - `src/tests/linters/multiple_public_items/` - Test directory ✅ Created
 - `src/tests/linters/multiple_public_items/__init__.py` - Test package initialization ✅ Created
 - `src/tests/linters/multiple_public_items/test_ast_visitor.py` - Unit tests for AST visitor ✅ Created
-- `src/tests/linters/multiple_public_items/test_multiple_public_items.py` - Unit tests for plugin (to be created)
+- `src/tests/linters/multiple_public_items/test_multiple_public_items.py` - Unit tests for plugin ✅ Created
 - `pyproject.toml` - Update with new plugin entry point
 
 ## Implementation Notes
@@ -107,26 +107,30 @@ sequenceDiagram
   - `src/tests/linters/multiple_public_items/__init__.py` - Created test package initialization file
   - `src/tests/linters/multiple_public_items/test_ast_visitor.py` - Implemented comprehensive unit tests covering single/multiple public items, private items filtering, nested items filtering, empty files, and various edge cases
 
-- [ ] 2.0 Implement main plugin class
+- [x] 2.0 Implement main plugin class
 
-  - [ ] 2.1 Create plugin class implementing flake8 interface with run() method
-  - [ ] 2.2 Implement violation detection logic (count > 1 public items)
-  - [ ] 2.3 Generate error messages listing all public items with proper formatting
-  - [ ] 2.4 Write unit tests for plugin class and error message generation
-
-  ### Files modified with description of changes
-
-  - (to be filled in after task completion)
-
-- [ ] 3.0 Integrate plugin with flake8
-
-  - [ ] 3.1 Update pyproject.toml to register the new plugin entry point
-  - [ ] 3.2 Create __init__.py files to properly export plugin class
-  - [ ] 3.3 Write integration tests to verify flake8 discovers and runs the plugin
+  - [x] 2.1 Create plugin class implementing flake8 interface with run() method
+  - [x] 2.2 Implement violation detection logic (count > 1 public items)
+  - [x] 2.3 Generate error messages listing all public items with proper formatting
+  - [x] 2.4 Write unit tests for plugin class and error message generation
 
   ### Files modified with description of changes
 
-  - (to be filled in after task completion)
+  - `src/linters/multiple_public_items/plugin.py` - Created main plugin class implementing flake8 interface with run() method, violation detection logic for multiple public items, and detailed error message generation with item types and line numbers
+  - `src/linters/multiple_public_items/__init__.py` - Updated package initialization to export MultiplePublicItemsPlugin class
+  - `src/tests/linters/multiple_public_items/test_multiple_public_items.py` - Created comprehensive unit tests covering plugin initialization, violation detection, error message formatting, edge cases, and integration scenarios with 42 test cases
+
+- [x] 3.0 Integrate plugin with flake8
+
+  - [x] 3.1 Update pyproject.toml to register the new plugin entry point
+  - [x] 3.2 Create __init__.py files to properly export plugin class
+  - [x] 3.3 Write integration tests to verify flake8 discovers and runs the plugin
+
+  ### Files modified with description of changes
+
+  - `pyproject.toml` - Added MPF entry point to register MultiplePublicItemsPlugin with flake8 plugin system
+  - `src/linters/multiple_public_items/__init__.py` - Already properly exports MultiplePublicItemsPlugin class (no changes needed)
+  - `src/tests/linters/multiple_public_items/test_integration.py` - Created comprehensive integration tests with flake8 CLI, covering plugin discovery, violation detection, error formatting, multiple files, syntax error handling, and edge cases. Split into multiple test classes to meet coding standards.
 
 - [ ] 4.0 Comprehensive testing and edge cases
 

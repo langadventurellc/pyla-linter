@@ -71,6 +71,7 @@ autolint = ["black", "isort", "lint"]
 
 [tool.poetry.plugins."flake8.extension"]
 EL1 = "src.linters.length_checker.plugin:LengthCheckerPlugin"
+MPF = "src.linters.multiple_public_items.plugin:MultiplePublicItemsPlugin"
 
 [tool.pyla-linters]
 max_function_length = 40
