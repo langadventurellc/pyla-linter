@@ -3,7 +3,8 @@
 import ast
 from typing import List, Tuple
 
-from src.linters.length_checker.ast_visitor import ASTVisitor, CodeElement
+from src.linters.length_checker.ast_visitor import ASTVisitor
+from src.linters.length_checker.code_element import CodeElement
 from src.linters.length_checker.config import LengthCheckerConfig
 from src.linters.length_checker.line_counter import LineCounter
 from src.linters.length_checker.plugin import LengthCheckerPlugin

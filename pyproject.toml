@@ -57,6 +57,7 @@ line-length = 100
 [tool.flake8]
 exclude = ["bin", "temp", ".venv"]
 max-line-length = 100
+per-file-ignores = ["src/tests/*/*.py:WL,EL"]
 
 [tool.pyright]
 include = ["src"]
@@ -70,7 +71,8 @@ format = ["black", "isort"]
 autolint = ["black", "isort", "lint"]
 
 [tool.poetry.plugins."flake8.extension"]
-EL1 = "src.linters.length_checker.plugin:LengthCheckerPlugin"
+EL0 = "src.linters.length_checker.plugin:LengthCheckerPlugin"
+EL1 = "src.linters.multiple_public_items.plugin:MultiplePublicItemsPlugin"
 
 [tool.pyla-linters]
 max_function_length = 40
