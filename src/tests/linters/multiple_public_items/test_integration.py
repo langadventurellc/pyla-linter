@@ -46,7 +46,7 @@ class PublicClass:
 
             # Run flake8 on the test file with explicit plugin selection
             result = subprocess.run(
-                [sys.executable, "-m", "flake8", "--select=MPF", str(test_file)],
+                [sys.executable, "-m", "flake8", "--select=EL101", str(test_file)],
                 capture_output=True,
                 text=True,
             )
@@ -56,7 +56,7 @@ class PublicClass:
 
             # Should contain our violation code in output
             output = result.stdout + result.stderr
-            assert "MPF001" in output
+            assert "EL101" in output
             assert "first_function" in output
             assert "second_function" in output
             assert "PublicClass" in output
@@ -83,7 +83,7 @@ def _private_function():
 
             # Run flake8 on the test file with explicit plugin selection
             result = subprocess.run(
-                [sys.executable, "-m", "flake8", "--select=MPF", str(test_file)],
+                [sys.executable, "-m", "flake8", "--select=EL101", str(test_file)],
                 capture_output=True,
                 text=True,
             )
@@ -92,7 +92,7 @@ def _private_function():
             output = result.stdout + result.stderr
 
             # Should not contain our error code
-            assert "MPF001" not in output
+            assert "EL101" not in output
 
 
 class TestFlake8ErrorFormatting:
@@ -119,7 +119,7 @@ class SecondClass:
 
             # Run flake8 on the test file with explicit plugin selection
             result = subprocess.run(
-                [sys.executable, "-m", "flake8", "--select=MPF", str(test_file)],
+                [sys.executable, "-m", "flake8", "--select=EL101", str(test_file)],
                 capture_output=True,
                 text=True,
             )
@@ -129,7 +129,7 @@ class SecondClass:
             # Should contain correctly formatted error message
             # Flake8 format is typically: filename:line:col: error_code message
             assert "test_format.py" in output
-            assert "MPF001" in output
+            assert "EL101" in output
             assert "FirstClass" in output
             assert "SecondClass" in output
             assert "2 public items" in output
@@ -160,7 +160,7 @@ def function_two():
 
             # Run flake8 on all Python files with explicit plugin selection
             result = subprocess.run(
-                [sys.executable, "-m", "flake8", "--select=MPF", str(file1), str(file2)],
+                [sys.executable, "-m", "flake8", "--select=EL101", str(file1), str(file2)],
                 capture_output=True,
                 text=True,
             )
@@ -169,16 +169,16 @@ def function_two():
 
             # Should find violation in file1 but not file2
             assert "file1.py" in output
-            assert "MPF001" in output
+            assert "EL101" in output
             assert "function_one" in output
             assert "function_two" in output
 
             # Should not complain about file2's single function
             if "file2.py" in output:
-                # If file2 is mentioned, it shouldn't have MPF001 errors
+                # If file2 is mentioned, it shouldn't have EL101 errors
                 file2_lines = [line for line in output.split("\n") if "file2.py" in line]
                 for line in file2_lines:
-                    assert "MPF001" not in line
+                    assert "EL101" not in line
 
 
 class TestFlake8SpecialCases:
@@ -204,15 +204,15 @@ def another_function():
 
             # Run flake8 on the test file with our plugin
             result = subprocess.run(
-                [sys.executable, "-m", "flake8", "--select=MPF", str(test_file)],
+                [sys.executable, "-m", "flake8", "--select=EL101", str(test_file)],
                 capture_output=True,
                 text=True,
             )
 
             output = result.stdout + result.stderr
 
-            # Our plugin should not report MPF001 errors for broken syntax
-            assert "MPF001" not in output
+            # Our plugin should not report EL101 errors for broken syntax
+            assert "EL101" not in output
 
     def test_flake8_integration_mixed_public_private_items(self):
         """Test flake8 integration with mixed public and private items."""
@@ -242,7 +242,7 @@ class _PrivateClass:
 
             # Run flake8 on the test file with explicit plugin selection
             result = subprocess.run(
-                [sys.executable, "-m", "flake8", "--select=MPF", str(test_file)],
+                [sys.executable, "-m", "flake8", "--select=EL101", str(test_file)],
                 capture_output=True,
                 text=True,
             )
@@ -251,7 +251,7 @@ class _PrivateClass:
             assert result.returncode != 0
 
             output = result.stdout + result.stderr
-            assert "MPF001" in output
+            assert "EL101" in output
             assert "public_function" in output
             assert "PublicClass" in output
             assert "_private_function" not in output
@@ -289,7 +289,7 @@ class OuterClass:
 
             # Run flake8 on the test file with explicit plugin selection
             result = subprocess.run(
-                [sys.executable, "-m", "flake8", "--select=MPF", str(test_file)],
+                [sys.executable, "-m", "flake8", "--select=EL101", str(test_file)],
                 capture_output=True,
                 text=True,
             )
@@ -298,7 +298,7 @@ class OuterClass:
             assert result.returncode != 0
 
             output = result.stdout + result.stderr
-            assert "MPF001" in output
+            assert "EL101" in output
             assert "outer_function" in output
             assert "OuterClass" in output
             assert "inner_function" not in output
@@ -323,17 +323,17 @@ And docstrings
 
             # Run flake8 on the test file with explicit plugin selection
             result = subprocess.run(
-                [sys.executable, "-m", "flake8", "--select=MPF", str(test_file)],
+                [sys.executable, "-m", "flake8", "--select=EL101", str(test_file)],
                 capture_output=True,
                 text=True,
             )
 
             # Should not detect violations for empty file
             output = result.stdout + result.stderr
-            assert "MPF001" not in output
+            assert "EL101" not in output
 
     def test_plugin_error_code_assignment(self):
-        """Test that the plugin uses the correct error code MPF001."""
+        """Test that the plugin uses the correct error code EL101."""
         code_with_violation = """def first():
     return 1
 
@@ -350,15 +350,15 @@ def second():
 
             # Run flake8 on the test file with explicit plugin selection
             result = subprocess.run(
-                [sys.executable, "-m", "flake8", "--select=MPF", str(test_file)],
+                [sys.executable, "-m", "flake8", "--select=EL101", str(test_file)],
                 capture_output=True,
                 text=True,
             )
 
             output = result.stdout + result.stderr
 
-            # Should use exactly MPF001 error code
-            assert "MPF001" in output
+            # Should use exactly EL101 error code
+            assert "EL101" in output
             # Should not use other error codes
-            assert "MPF002" not in output
-            assert "MPF000" not in output
+            assert "EL999" not in output
+            assert "EL909" not in output

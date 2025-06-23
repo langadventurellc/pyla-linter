@@ -131,7 +131,7 @@ def second_function():
         assert len(errors) == 1
 
         line, col, message, error_code = errors[0]
-        assert error_code == "MPF001"
+        assert error_code == "EL101"
         assert "2 public items" in message
         assert "first_function" in message
         assert "second_function" in message
@@ -148,7 +148,7 @@ class SecondClass:
         assert len(errors) == 1
 
         line, col, message, error_code = errors[0]
-        assert error_code == "MPF001"
+        assert error_code == "EL101"
         assert "2 public items" in message
         assert "FirstClass" in message
         assert "SecondClass" in message
@@ -165,7 +165,7 @@ class PublicClass:
         assert len(errors) == 1
 
         line, col, message, error_code = errors[0]
-        assert error_code == "MPF001"
+        assert error_code == "EL101"
         assert "2 public items" in message
         assert "function 'public_function'" in message
         assert "class 'PublicClass'" in message
@@ -182,7 +182,7 @@ async def async_function():
         assert len(errors) == 1
 
         line, col, message, error_code = errors[0]
-        assert error_code == "MPF001"
+        assert error_code == "EL101"
         assert "2 public items" in message
         assert "regular_function" in message
         assert "async_function" in message
@@ -208,7 +208,7 @@ class SecondClass:
         assert len(errors) == 1
 
         line, col, message, error_code = errors[0]
-        assert error_code == "MPF001"
+        assert error_code == "EL101"
         assert "5 public items" in message
         assert "first_function" in message
         assert "FirstClass" in message
@@ -232,8 +232,8 @@ def func2():
         assert len(errors) == 1
 
         line, col, message, error_code = errors[0]
-        assert error_code == "MPF001"
-        assert message.startswith("MPF001")
+        assert error_code == "EL101"
+        assert message.startswith("EL101")
         assert "2 public items" in message
         assert "Only one public item per file is allowed" in message
 

@@ -49,10 +49,10 @@ class MultiplePublicItemsPlugin:
         items_list = ", ".join(item_descriptions)
 
         message = (
-            f"MPF001 File contains {len(public_items)} public items: {items_list}. "
+            f"EL101 File contains {len(public_items)} public items: {items_list}. "
             f"Only one public item per file is allowed."
         )
 
         # Report error at the first line of the first public item
         first_item = sorted_items[0]
-        return (first_item.line_number, 0, message, "MPF001")
+        return (first_item.line_number, 0, message, "EL101")

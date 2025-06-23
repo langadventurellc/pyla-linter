@@ -2,7 +2,8 @@
 
 import ast
 
-from src.linters.multiple_public_items.ast_visitor import PublicItem, PublicItemsVisitor
+from src.linters.multiple_public_items.ast_visitor import PublicItemsVisitor
+from src.linters.multiple_public_items.public_item import PublicItem
 
 
 class TestPublicItemsVisitor:

@@ -4,5 +4,6 @@ This module provides a flake8 plugin for checking that files have only one publi
 """
 
 from .plugin import MultiplePublicItemsPlugin
+from .public_item import PublicItem
 
-__all__ = ["MultiplePublicItemsPlugin"]
+__all__ = ["MultiplePublicItemsPlugin", "PublicItem"]

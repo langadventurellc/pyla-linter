@@ -20,7 +20,7 @@ This feature adds a new flake8 linter plugin that enforces the project's coding 
 
 7. **Module-Level Scope Only**: The linter shall only check items at the module level, not nested classes or functions within classes.
 
-8. **Error Code Assignment**: The linter shall use error code "MPF001" (Multiple Public Functions) for violations.
+8. **Error Code Assignment**: The linter shall use error code "EL101" (Multiple Public Functions) for violations.
 
 ## Technical Requirements
 
