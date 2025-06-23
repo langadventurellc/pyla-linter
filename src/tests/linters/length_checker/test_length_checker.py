@@ -596,7 +596,7 @@ def second_function():
         assert errors == []  # Should handle gracefully, not crash
 
 
-class TestEdgeCases:  # noqa: EL002
+class TestEdgeCases:  # noqa: WL002
     """Test edge cases and corner scenarios."""
 
     def test_lambda_functions_not_counted(self):
@@ -1315,7 +1315,7 @@ include_patterns = ["src/**/*.py"]
         # Plugin interface is simplified - flake8 handles file filtering
 
 
-class TestFlake8Integration:  # noqa: EL002
+class TestFlake8Integration:  # noqa: WL002
     """Test integration with flake8 CLI."""
 
     def test_plugin_is_registered_with_flake8(self):
@@ -1521,7 +1521,7 @@ max_class_length = 200
             assert "EL001" not in output
             assert "EL002" not in output
 
-    def test_flake8_integration_with_custom_config(self):  # noqa: EL001
+    def test_flake8_integration_with_custom_config(self):  # noqa: WL001
         """Test flake8 integration with custom configuration."""
         import subprocess
         import tempfile
@@ -1607,7 +1607,7 @@ build-backend = "poetry.core.masonry.api"
             assert "WL001" not in lenient_output
             assert "EL001" not in lenient_output
 
-    def test_flake8_integration_error_format(self):  # noqa: EL001
+    def test_flake8_integration_error_format(self):  # noqa: WL001
         """Test that flake8 integration produces correctly formatted errors."""
         import subprocess
         import tempfile
@@ -1668,7 +1668,7 @@ build-backend = "poetry.core.masonry.api"
             assert "8 lines long" in output
             assert "exceeds warning threshold of 5" in output
 
-    def test_flake8_integration_multiple_files(self):  # noqa: EL001
+    def test_flake8_integration_multiple_files(self):  # noqa: WL001
         """Test flake8 integration with multiple files."""
         import subprocess
         import tempfile
@@ -2476,7 +2476,7 @@ class WarningClass:
                 assert "WarningClass" in message
                 assert "warning threshold" in message
 
-    def test_message_format_consistency(self):
+    def test_message_format_consistency(self):  # noqa: WL001
         """Test that all message formats include required elements."""
         code = """def warning_function():
     line1 = 1
