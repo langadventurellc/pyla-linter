@@ -391,8 +391,16 @@ build-backend = "setuptools.build_meta"
 
             # Run flake8 on all Python files with explicit plugin selection
             result = subprocess.run(
-                ["poetry", "run", "flake8", "--select=WL,EL", str(file1), str(file2)],
-                cwd=temp_dir,
+                [
+                    "uv",
+                    "run",
+                    "flake8",
+                    "--select=WL,EL",
+                    "--length-max-function=5",
+                    "--length-max-class=50",
+                    str(file1),
+                    str(file2),
+                ],
                 capture_output=True,
                 text=True,
             )
