@@ -28,7 +28,7 @@ def function_two():
             # Run flake8 with exclude option
             result = subprocess.run(
                 [
-                    "poetry",
+                    "uv",
                     "run",
                     "flake8",
                     "--exclude=test_excluded.py",
@@ -64,7 +64,7 @@ def function_two():
             # Run flake8 with per-file-ignores CLI option
             result = subprocess.run(
                 [
-                    "poetry",
+                    "uv",
                     "run",
                     "flake8",
                     f"--per-file-ignores={test_file.name}:EL101",
@@ -108,7 +108,7 @@ select = EL101
 
             # Run flake8 with our plugin
             result = subprocess.run(
-                ["poetry", "run", "flake8", "--config", str(config_file), str(test_file)],
+                ["uv", "run", "flake8", "--config", str(config_file), str(test_file)],
                 cwd=Path.cwd(),
                 capture_output=True,
                 text=True,
@@ -140,7 +140,7 @@ def function_two():
             # Run flake8 with ignore CLI option
             result = subprocess.run(
                 [
-                    "poetry",
+                    "uv",
                     "run",
                     "flake8",
                     "--ignore=EL101",
@@ -176,7 +176,7 @@ def function_two():
             # Run flake8 with extend-ignore CLI option
             result = subprocess.run(
                 [
-                    "poetry",
+                    "uv",
                     "run",
                     "flake8",
                     "--extend-ignore=EL101",
@@ -232,7 +232,7 @@ class ClassTwo:
             # Run flake8 on all files with per-file ignores for file1
             result = subprocess.run(
                 [
-                    "poetry",
+                    "uv",
                     "run",
                     "flake8",
                     f"--per-file-ignores={file1.name}:EL101",
@@ -282,7 +282,7 @@ ignore = ["EL101"]
             # Run flake8 with our plugin (note: flake8 doesn't natively support pyproject.toml)
             # This test documents the expected behavior if pyproject.toml support is added
             result = subprocess.run(
-                ["poetry", "run", "flake8", str(test_file)],
+                ["uv", "run", "flake8", str(test_file)],
                 cwd=Path.cwd(),
                 capture_output=True,
                 text=True,
@@ -316,7 +316,7 @@ def function_two():
 
             # Run flake8 with --select option
             result = subprocess.run(
-                ["poetry", "run", "flake8", "--select=EL101", str(test_file)],
+                ["uv", "run", "flake8", "--select=EL101", str(test_file)],
                 cwd=Path.cwd(),
                 capture_output=True,
                 text=True,
@@ -345,7 +345,7 @@ def function_two():
 
             # Run flake8 with --ignore option, but also select only EL101 to test specifically
             result = subprocess.run(
-                ["poetry", "run", "flake8", "--ignore=EL101", "--select=EL101", str(test_file)],
+                ["uv", "run", "flake8", "--ignore=EL101", "--select=EL101", str(test_file)],
                 cwd=Path.cwd(),
                 capture_output=True,
                 text=True,
@@ -374,7 +374,7 @@ def function_two():
 
             # Run flake8 with --extend-ignore option
             result = subprocess.run(
-                ["poetry", "run", "flake8", "--extend-ignore=EL101", str(test_file)],
+                ["uv", "run", "flake8", "--extend-ignore=EL101", str(test_file)],
                 cwd=Path.cwd(),
                 capture_output=True,
                 text=True,

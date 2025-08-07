@@ -8,26 +8,14 @@ Use context7 MCP to access up-to-date documentation for third-party libraries.
 
 ## Development Setup
 
-The project uses Poetry for dependency management and poethepoet for task running. Python 3.12 is required.
+The project uses UV for dependency management and poethepoet for task running. Python 3.12 is required.
 
 ### Common Development Commands
 
 ```bash
-# Install dependencies
-poetry install
-
-# Code formatting and linting
-poetry run poe format    # Runs black and isort
-poetry run poe autolint  # Runs black, isort, and flake8
-poetry run poe lint      # Run linting only
-poetry run pyright       # Run type checking with Pyright
-
-# Individual formatting tools
-poetry run poe black     # Format code with black
-poetry run poe isort     # Sort imports
-
-# Run tests
-poetry run pytest                           # Run all tests
+uv sync
+uv run poe quality   # Runs all quality checks (linting, type checking, formatting)
+uv run pytest                           # Run all tests
 ```
 
 ## Architecture
@@ -85,7 +73,7 @@ Tests use pytest with async support. Test files follow the pattern `test_*.py` a
 
 ### Type Checking
 
-Use Pyright for type checking. Ensure all code is type-annotated and passes type checks. Run `poetry run pyright` to check types.
+Use Pyright for type checking. Ensure all code is type-annotated and passes type checks. Run `uv run pyright` to check types.
 
 - Prefer built-in types (`list`, `dict`, etc.) over `typing.List`, `typing.Dict` unless necessary
 - Use union operator for optional types (e.g., `str | None` instead of `Optional[str]`)

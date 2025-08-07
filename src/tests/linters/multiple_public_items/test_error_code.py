@@ -232,7 +232,7 @@ def function_two():
 
             # Run flake8
             result = subprocess.run(
-                ["poetry", "run", "flake8", "--select=EL101", str(test_file)],
+                ["uv", "run", "flake8", "--select=EL101", str(test_file)],
                 cwd=Path.cwd(),
                 capture_output=True,
                 text=True,
@@ -262,7 +262,7 @@ def function_two():
 
             # Run flake8 with only EL101 selected
             result = subprocess.run(
-                ["poetry", "run", "flake8", "--select=EL101", str(test_file)],
+                ["uv", "run", "flake8", "--select=EL101", str(test_file)],
                 cwd=Path.cwd(),
                 capture_output=True,
                 text=True,
@@ -293,7 +293,7 @@ def function_two():
 
             # Run flake8 with EL101 ignored
             result = subprocess.run(
-                ["poetry", "run", "flake8", "--ignore=EL101", str(test_file)],
+                ["uv", "run", "flake8", "--ignore=EL101", str(test_file)],
                 cwd=Path.cwd(),
                 capture_output=True,
                 text=True,
@@ -321,7 +321,7 @@ def second_function():
 
             # Run flake8
             result = subprocess.run(
-                ["poetry", "run", "flake8", "--select=EL101", str(test_file)],
+                ["uv", "run", "flake8", "--select=EL101", str(test_file)],
                 cwd=Path.cwd(),
                 capture_output=True,
                 text=True,
@@ -380,7 +380,7 @@ def single_function():
 
             # Run flake8 on the directory
             result = subprocess.run(
-                ["poetry", "run", "flake8", "--select=EL101", str(temp_path)],
+                ["uv", "run", "flake8", "--select=EL101", str(temp_path)],
                 cwd=Path.cwd(),
                 capture_output=True,
                 text=True,
