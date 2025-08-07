@@ -46,8 +46,8 @@ Repository = "https://github.com/langadventurellc/pyla-linter"
 Issues = "https://github.com/langadventurellc/pyla-linter/issues"
 
 [project.entry-points."flake8.extension"]
-EL0 = "src.linters.length_checker.plugin:LengthCheckerPlugin"
-EL1 = "src.linters.multiple_public_items.plugin:MultiplePublicItemsPlugin"
+EL0 = "linters.length_checker.plugin:LengthCheckerPlugin"
+EL1 = "linters.multiple_public_items.plugin:MultiplePublicItemsPlugin"
 
 [tool.setuptools.packages.find]
 where = ["src"]

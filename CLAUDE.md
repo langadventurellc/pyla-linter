@@ -13,20 +13,8 @@ The project uses UV for dependency management and poethepoet for task running. P
 ### Common Development Commands
 
 ```bash
-# Install dependencies
 uv sync
-
-# Code formatting and linting
-uv run poe format    # Runs black and isort
-uv run poe autolint  # Runs black, isort, and flake8
-uv run poe lint      # Run linting only
-uv run pyright       # Run type checking with Pyright
-
-# Individual formatting tools
-uv run poe black     # Format code with black
-uv run poe isort     # Sort imports
-
-# Run tests
+uv run poe quality   # Runs all quality checks (linting, type checking, formatting)
 uv run pytest                           # Run all tests
 ```
 
