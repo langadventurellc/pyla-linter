@@ -347,7 +347,7 @@ class TestPerformanceIntegration:
             # Time flake8 execution
             start_time = time.time()
             result = subprocess.run(
-                ["poetry", "run", "flake8", "--select=EL101", str(test_file)],
+                ["uv", "run", "flake8", "--select=EL101", str(test_file)],
                 cwd=Path.cwd(),
                 capture_output=True,
                 text=True,

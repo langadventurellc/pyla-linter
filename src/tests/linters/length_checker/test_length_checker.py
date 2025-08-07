@@ -990,7 +990,8 @@ max_class_length = 250
 
         toml_content = """
 [build-system]
-requires = ["poetry-core"]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
 """
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
@@ -1011,7 +1012,7 @@ requires = ["poetry-core"]
         from pathlib import Path
 
         toml_content = """
-[tool.poetry]
+[project]
 name = "test-project"
 
 [tool.black]
@@ -1326,9 +1327,7 @@ class TestFlake8Integration:  # noqa: WL002
         import subprocess
 
         # Run flake8 --help to see if our plugin is available
-        result = subprocess.run(
-            ["poetry", "run", "flake8", "--help"], capture_output=True, text=True
-        )
+        result = subprocess.run(["uv", "run", "flake8", "--help"], capture_output=True, text=True)
 
         # Should not error and should complete successfully
         assert result.returncode == 0
@@ -1437,26 +1436,26 @@ class VeryLongClass:
 
             # Create pyproject.toml with strict limits to ensure violations
             pyproject_content = """
-[tool.poetry]
+[project]
 name = "test-project"
 version = "0.1.0"
 description = "Test project"
-authors = ["Test <test@example.com>"]
+authors = [{name = "Test", email = "test@example.com"}]
 
 [tool.pyla-linters]
 max_function_length = 40
 max_class_length = 200
 
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
 """
             pyproject_file = temp_path / "pyproject.toml"
             pyproject_file.write_text(pyproject_content)
 
             # Run flake8 on the test file with explicit plugin selection
             result = subprocess.run(
-                ["poetry", "run", "flake8", "--select=WL,EL", str(test_file)],
+                ["uv", "run", "flake8", "--select=WL,EL", str(test_file)],
                 cwd=temp_dir,
                 capture_output=True,
                 text=True,
@@ -1511,7 +1510,7 @@ max_class_length = 200
 
             # Run flake8 on the test file with explicit plugin selection
             result = subprocess.run(
-                ["poetry", "run", "flake8", "--select=WL,EL", str(test_file)],
+                ["uv", "run", "flake8", "--select=WL,EL", str(test_file)],
                 cwd=temp_dir,
                 capture_output=True,
                 text=True,
@@ -1552,25 +1551,25 @@ max_class_length = 200
 
             # Test with strict limits - should have violations
             strict_pyproject = """
-[tool.poetry]
+[project]
 name = "test-project"
 version = "0.1.0"
 description = "Test project"
-authors = ["Test <test@example.com>"]
+authors = [{name = "Test", email = "test@example.com"}]
 
 [tool.pyla-linters]
 max_function_length = 5
 max_class_length = 50
 
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
 """
             pyproject_file = temp_path / "pyproject.toml"
             pyproject_file.write_text(strict_pyproject)
 
             result_strict = subprocess.run(
-                ["poetry", "run", "flake8", "--select=WL,EL", str(test_file)],
+                ["uv", "run", "flake8", "--select=WL,EL", str(test_file)],
                 cwd=temp_dir,
                 capture_output=True,
                 text=True,
@@ -1599,7 +1598,7 @@ build-backend = "poetry.core.masonry.api"
             pyproject_file.write_text(lenient_pyproject)
 
             result_lenient = subprocess.run(
-                ["poetry", "run", "flake8", "--select=WL,EL", str(test_file)],
+                ["uv", "run", "flake8", "--select=WL,EL", str(test_file)],
                 cwd=temp_dir,
                 capture_output=True,
                 text=True,
@@ -1636,26 +1635,26 @@ build-backend = "poetry.core.masonry.api"
 
             # Create pyproject.toml with strict limits
             pyproject_content = """
-[tool.poetry]
+[project]
 name = "test-project"
 version = "0.1.0"
 description = "Test project"
-authors = ["Test <test@example.com>"]
+authors = [{name = "Test", email = "test@example.com"}]
 
 [tool.pyla-linters]
 max_function_length = 5
 max_class_length = 50
 
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
 """
             pyproject_file = temp_path / "pyproject.toml"
             pyproject_file.write_text(pyproject_content)
 
             # Run flake8 on the test file with explicit plugin selection
             result = subprocess.run(
-                ["poetry", "run", "flake8", "--select=WL,EL", str(test_file)],
+                ["uv", "run", "flake8", "--select=WL,EL", str(test_file)],
                 cwd=temp_dir,
                 capture_output=True,
                 text=True,
@@ -1708,19 +1707,19 @@ class CleanClass:
 
             # Create pyproject.toml
             pyproject_content = """
-[tool.poetry]
+[project]
 name = "test-project"
 version = "0.1.0"
 description = "Test project"
-authors = ["Test <test@example.com>"]
+authors = [{name = "Test", email = "test@example.com"}]
 
 [tool.pyla-linters]
 max_function_length = 5
 max_class_length = 50
 
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
 """
             pyproject_file = temp_path / "pyproject.toml"
             pyproject_file.write_text(pyproject_content)

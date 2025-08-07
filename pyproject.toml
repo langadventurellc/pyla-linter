@@ -1,40 +1,72 @@
-[tool.poetry]
-name = "pyla-linter"
-version = "1.3.0"
-description = "Python linter for LangAdventure products"
-authors = ["LangAdventure"]
-readme = "README.md"
-packages = [{include = "src"}]
-
-[tool.poetry.dependencies]
-python = "^3.12"
-pyla-logger = "^1.0.0"
-flake8 = "^7.0.0"
-tomli = "^2.0.0"
-
-[tool.poetry.group.dev.dependencies]
-black = "^23.1.0"
-isort = "^5.12.0"
-poethepoet = "^0.21.0"
-setuptools = "^75.8.0"
-pyright = "^1.1.402"
-pytest = "^8.4.0"
-pytest-mock = "^3.14.1"
-flake8-pyproject = "^1.2.3"
-
-[[tool.poetry.source]]
-name = "gcp"
-url = "https://us-west1-python.pkg.dev/langadventure-shared-common/langadventure-python/simple/"
-priority = "supplemental"
-
-[[tool.poetry.source]]
-name = "gcp-pub"
-url = "https://us-west1-python.pkg.dev/langadventure-shared-common/langadventure-python/"
-priority = "supplemental"
-
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["setuptools>=68", "setuptools-scm>=8", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pyla-linter"
+dynamic = ["version"]
+description = "Flake8 linting plugins to handle common AI code agent issues"
+readme = "README.md"
+requires-python = ">=3.12"
+license = {text = "GPL-3.0"}
+authors = [
+    {name = "LangAdventure LLC"}
+]
+keywords = ["linting", "flake8", "python", "langadventure"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Software Development :: Quality Assurance",
+]
+
+dependencies = [
+    "pyla-logger>=1.0.0",
+    "flake8>=7.0.0",
+    "tomli>=2.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "black",
+    "flake8-pyproject",
+    "isort",
+    "poethepoet",
+    "pyright",
+    "pytest",
+    "pytest-mock",
+]
+
+[project.urls]
+Homepage = "https://github.com/langadventurellc/pyla-linter"
+Repository = "https://github.com/langadventurellc/pyla-linter"
+Issues = "https://github.com/langadventurellc/pyla-linter/issues"
+
+[project.entry-points."flake8.extension"]
+EL0 = "src.linters.length_checker.plugin:LengthCheckerPlugin"
+EL1 = "src.linters.multiple_public_items.plugin:MultiplePublicItemsPlugin"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["*"]
+exclude = ["tests*"]
+
+[dependency-groups]
+dev = [
+    "black>=23.1.0",
+    "build>=1.2.2.post1",
+    "flake8>=7.0.0",
+    "flake8-pyproject>=1.2.3",
+    "isort>=5.12.0",
+    "poethepoet>=0.21.0",
+    "pyright>=1.1.402",
+    "pytest>=8.4.0",
+    "pytest-mock>=3.14.1",
+    "setuptools>=75.8.0",
+]
 
 [tool.pytest.ini_options]
 pythonpath = "src"
@@ -66,13 +98,23 @@ exclude = ["bin", "temp", ".venv"]
 [tool.poe.tasks]
 black = "black ."
 isort = "isort ."
+lint_smells = "flake8 --exit-zero --ignore=E,W,F --select=WL"
 lint = "flake8"
+type-check = "pyright"
+test = "pytest -q"
 format = ["black", "isort"]
-autolint = ["black", "isort", "lint"]
+autolint = ["black", "isort", "lint_smells", "lint"]
+quality = [
+    "black",
+    "isort",
+    "lint",
+    "type-check",
+]
+build = "python -m build"
 
-[tool.poetry.plugins."flake8.extension"]
-EL0 = "src.linters.length_checker.plugin:LengthCheckerPlugin"
-EL1 = "src.linters.multiple_public_items.plugin:MultiplePublicItemsPlugin"
+[tool.setuptools_scm]
+version_scheme = "post-release"
+local_scheme = "no-local-version"
 
 [tool.pyla-linters]
 max_function_length = 40
